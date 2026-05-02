@@ -28,9 +28,18 @@ export const parsePDF = async (filePath) => {
 };
 
 export const analyzeText = (text, selectedRole = "SDE") => {
+  if (!roleSkills[selectedRole]) {
+    const validRoles = Object.keys(roleSkills).join(", ");
+    const error = new Error(
+      `Invalid target role. Valid roles are: ${validRoles}`,
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
   const extractedSkills = extractSkills(text);
 
-  const roleData = roleSkills[selectedRole] || roleSkills.SDE;
+  const roleData = roleSkills[selectedRole];
   const requiredSkills = roleData.requiredSkills;
 
   const matchedSkills = requiredSkills.filter((skill) =>
@@ -47,6 +56,8 @@ export const analyzeText = (text, selectedRole = "SDE") => {
 
   const roadmap = generateRoadmap(missingSkills);
 
+  const readinessReason = `You match ${matchedSkills.length} out of ${requiredSkills.length} required skills for ${selectedRole}.`;
+
   return {
     targetRole: selectedRole,
     roleTitle: roleData.title,
@@ -55,6 +66,7 @@ export const analyzeText = (text, selectedRole = "SDE") => {
     matchedSkills,
     missingSkills,
     jobReadiness,
+    readinessReason,
     roadmap,
   };
 };

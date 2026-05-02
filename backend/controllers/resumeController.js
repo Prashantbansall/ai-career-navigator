@@ -26,6 +26,8 @@ export const uploadResume = async (req, res) => {
   try {
     if (!validateUploadedFile(req, res)) return;
 
+    deleteUploadedFile(req.file.path);
+
     res.json({
       message: "Resume uploaded successfully",
       file: req.file.filename,
@@ -63,7 +65,7 @@ export const extractResume = async (req, res) => {
       deleteUploadedFile(req.file.path);
     }
 
-    res.status(500).json({
+    res.status(err.statusCode || 500).json({
       error: "Extraction failed",
       details: err.message,
     });
@@ -92,7 +94,7 @@ export const analyzeResume = async (req, res) => {
       deleteUploadedFile(req.file.path);
     }
 
-    res.status(500).json({
+    res.status(err.statusCode || 500).json({
       error: "Analysis failed",
       details: err.message,
     });

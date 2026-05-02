@@ -63,6 +63,8 @@ export const analyzeText = async (text, selectedRole = "SDE") => {
   let aiRecommendations = [];
   let aiRoadmap = fallbackRoadmap;
   let aiEnabled = false;
+  let aiError = "";
+  let roadmapSource = "fallback";
 
   try {
     const aiResult = await generateAIRoadmap({
@@ -79,8 +81,11 @@ export const analyzeText = async (text, selectedRole = "SDE") => {
     aiRecommendations = aiResult.aiRecommendations || [];
     aiRoadmap = aiResult.aiRoadmap || fallbackRoadmap;
     aiEnabled = true;
+    roadmapSource = "ai";
   } catch (error) {
     console.error("AI roadmap generation failed:", error.message);
+    aiError =
+      "AI roadmap generation failed, so a rule-based fallback roadmap was used.";
   }
 
   return {
@@ -97,5 +102,7 @@ export const analyzeText = async (text, selectedRole = "SDE") => {
     aiRecommendations,
     aiRoadmap,
     aiEnabled,
+    aiError,
+    roadmapSource,
   };
 };

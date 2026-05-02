@@ -3,6 +3,7 @@ import { createRequire } from "module";
 import { extractSkills } from "../utils/skillExtractor.js";
 import { roleSkills } from "../utils/roleSkills.js";
 import { generateRoadmap } from "./roadmapService.js";
+import { generateAIRoadmap } from "./aiRoadmapService.js";
 
 const require = createRequire(import.meta.url);
 const pdfParse = require("pdf-parse");
@@ -27,7 +28,7 @@ export const parsePDF = async (filePath) => {
   return data.text;
 };
 
-export const analyzeText = (text, selectedRole = "SDE") => {
+export const analyzeText = async (text, selectedRole = "SDE") => {
   if (!roleSkills[selectedRole]) {
     const validRoles = Object.keys(roleSkills).join(", ");
     const error = new Error(
@@ -54,9 +55,33 @@ export const analyzeText = (text, selectedRole = "SDE") => {
     (matchedSkills.length / requiredSkills.length) * 100,
   );
 
-  const roadmap = generateRoadmap(missingSkills);
-
   const readinessReason = `You match ${matchedSkills.length} out of ${requiredSkills.length} required skills for ${selectedRole}.`;
+
+  const fallbackRoadmap = generateRoadmap(missingSkills);
+
+  let aiSummary = "";
+  let aiRecommendations = [];
+  let aiRoadmap = fallbackRoadmap;
+  let aiEnabled = false;
+
+  try {
+    const aiResult = await generateAIRoadmap({
+      targetRole: selectedRole,
+      roleTitle: roleData.title,
+      extractedSkills,
+      requiredSkills,
+      matchedSkills,
+      missingSkills,
+      jobReadiness,
+    });
+
+    aiSummary = aiResult.aiSummary || "";
+    aiRecommendations = aiResult.aiRecommendations || [];
+    aiRoadmap = aiResult.aiRoadmap || fallbackRoadmap;
+    aiEnabled = true;
+  } catch (error) {
+    console.error("AI roadmap generation failed:", error.message);
+  }
 
   return {
     targetRole: selectedRole,
@@ -67,6 +92,10 @@ export const analyzeText = (text, selectedRole = "SDE") => {
     missingSkills,
     jobReadiness,
     readinessReason,
-    roadmap,
+    roadmap: fallbackRoadmap,
+    aiSummary,
+    aiRecommendations,
+    aiRoadmap,
+    aiEnabled,
   };
 };

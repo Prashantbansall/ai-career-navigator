@@ -79,7 +79,7 @@ export const analyzeResume = async (req, res) => {
     const selectedRole = req.body.targetRole || "SDE";
 
     const text = await parsePDF(req.file.path);
-    const result = analyzeText(text, selectedRole);
+    const result = await analyzeText(text, selectedRole);
 
     deleteUploadedFile(req.file.path);
 

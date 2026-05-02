@@ -1,14 +1,25 @@
 import { GoogleGenAI } from "@google/genai";
+import OpenAI from "openai";
 import { aiConfig } from "../config/aiConfig.js";
 
 const getGeminiClient = () => {
-  const apiKey = process.env.GEMINI_API_KEY;
-
-  if (!apiKey) {
+  if (!process.env.GEMINI_API_KEY) {
     throw new Error("GEMINI_API_KEY is missing");
   }
 
-  return new GoogleGenAI({ apiKey });
+  return new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY,
+  });
+};
+
+const getOpenAIClient = () => {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY is missing");
+  }
+
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
 };
 
 const extractJsonFromText = (text) => {
@@ -68,7 +79,7 @@ const validateAIResult = (result) => {
   };
 };
 
-export const generateAIRoadmap = async ({
+const buildRoadmapPrompt = ({
   targetRole,
   roleTitle,
   extractedSkills,
@@ -77,26 +88,7 @@ export const generateAIRoadmap = async ({
   missingSkills,
   jobReadiness,
 }) => {
-  if (aiConfig.provider !== "gemini") {
-    throw new Error(`Unsupported AI provider: ${aiConfig.provider}`);
-  }
-
-  const ai = getGeminiClient();
-
-  if (missingSkills.length === 0) {
-    return {
-      aiSummary:
-        "Your resume already matches the selected role well. Focus on building advanced projects, improving resume impact, and preparing for interviews.",
-      aiRecommendations: [
-        "Build one advanced project with deployment and GitHub documentation.",
-        "Practice role-specific interview questions and revise fundamentals.",
-        "Improve resume bullet points with measurable outcomes and technical depth.",
-      ],
-      aiRoadmap: [],
-    };
-  }
-
-  const prompt = `
+  return `
 You are an expert AI career coach and technical mentor.
 
 Create a personalized career roadmap for a student preparing for this target role.
@@ -156,12 +148,98 @@ Rules:
 - Avoid vague advice.
 - Every field must be a string except arrays.
 `;
+};
+
+const generateWithGemini = async (prompt) => {
+  const ai = getGeminiClient();
 
   const response = await ai.models.generateContent({
     model: aiConfig.geminiModel,
     contents: prompt,
   });
 
-  const parsed = extractJsonFromText(response.text);
-  return validateAIResult(parsed);
+  return response.text;
+};
+
+const generateWithOpenAI = async (prompt) => {
+  const client = getOpenAIClient();
+
+  const response = await client.responses.create({
+    model: aiConfig.openaiModel,
+    input: prompt,
+  });
+
+  return response.output_text;
+};
+
+const generateWithProvider = async (provider, prompt) => {
+  if (provider === "gemini") {
+    return generateWithGemini(prompt);
+  }
+
+  if (provider === "openai") {
+    return generateWithOpenAI(prompt);
+  }
+
+  throw new Error(`Unsupported AI provider: ${provider}`);
+};
+
+export const generateAIRoadmap = async ({
+  targetRole,
+  roleTitle,
+  extractedSkills,
+  requiredSkills,
+  matchedSkills,
+  missingSkills,
+  jobReadiness,
+}) => {
+  if (missingSkills.length === 0) {
+    return {
+      aiSummary:
+        "Your resume already matches the selected role well. Focus on building advanced projects, improving resume impact, and preparing for interviews.",
+      aiRecommendations: [
+        "Build one advanced project with deployment and GitHub documentation.",
+        "Practice role-specific interview questions and revise fundamentals.",
+        "Improve resume bullet points with measurable outcomes and technical depth.",
+      ],
+      aiRoadmap: [],
+      aiProviderUsed: "none",
+    };
+  }
+
+  const prompt = buildRoadmapPrompt({
+    targetRole,
+    roleTitle,
+    extractedSkills,
+    requiredSkills,
+    matchedSkills,
+    missingSkills,
+    jobReadiness,
+  });
+
+  const providersToTry = [aiConfig.provider, aiConfig.fallbackProvider].filter(
+    Boolean,
+  );
+
+  const errors = [];
+
+  for (const provider of providersToTry) {
+    try {
+      const text = await generateWithProvider(provider, prompt);
+      const parsed = extractJsonFromText(text);
+      const validated = validateAIResult(parsed);
+
+      return {
+        ...validated,
+        aiProviderUsed: provider,
+      };
+    } catch (error) {
+      console.error(`${provider} roadmap generation failed:`, error.message);
+      errors.push(`${provider}: ${error.message}`);
+    }
+  }
+
+  const error = new Error(`All AI providers failed. ${errors.join(" | ")}`);
+  error.providerErrors = errors;
+  throw error;
 };

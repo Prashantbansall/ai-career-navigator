@@ -65,6 +65,7 @@ export const analyzeText = async (text, selectedRole = "SDE") => {
   let aiEnabled = false;
   let aiError = "";
   let roadmapSource = "fallback";
+  let aiProviderUsed = "";
 
   try {
     const aiResult = await generateAIRoadmap({
@@ -81,6 +82,7 @@ export const analyzeText = async (text, selectedRole = "SDE") => {
     aiRecommendations = aiResult.aiRecommendations || [];
     aiRoadmap = aiResult.aiRoadmap || fallbackRoadmap;
     aiEnabled = true;
+    aiProviderUsed = aiResult.aiProviderUsed || "unknown";
     roadmapSource = "ai";
   } catch (error) {
     console.error("AI roadmap generation failed:", error.message);
@@ -104,5 +106,6 @@ export const analyzeText = async (text, selectedRole = "SDE") => {
     aiEnabled,
     aiError,
     roadmapSource,
+    aiProviderUsed,
   };
 };

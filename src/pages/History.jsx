@@ -7,6 +7,7 @@ import GlowButton from "../components/ui/GlowButton";
 import AnimatedBadge from "../components/ui/AnimatedBadge";
 import toast from "react-hot-toast";
 import SkeletonCard from "../components/ui/SkeletonCard";
+import ConfirmModal from "../components/ui/ConfirmModal";
 
 import {
   getAnalysisHistoryAPI,
@@ -50,6 +51,8 @@ export default function History() {
   const [openingId, setOpeningId] = useState("");
   const [deletingId, setDeletingId] = useState("");
   const [error, setError] = useState("");
+
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
 
   const navigate = useNavigate();
 
@@ -179,23 +182,24 @@ export default function History() {
     }
   };
 
-  const deleteAnalysis = async (id) => {
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete this analysis?",
-    );
+  const requestDeleteAnalysis = (id) => {
+    setDeleteTargetId(id);
+  };
 
-    if (!confirmDelete) return;
+  const confirmDeleteAnalysis = async () => {
+    if (!deleteTargetId) return;
 
     try {
-      setDeletingId(id);
+      setDeletingId(deleteTargetId);
       setError("");
 
-      await deleteAnalysisAPI(id);
+      await deleteAnalysisAPI(deleteTargetId);
 
-      setHistory((prev) => prev.filter((item) => item._id !== id));
+      setHistory((prev) => prev.filter((item) => item._id !== deleteTargetId));
       setTotal((prev) => Math.max(prev - 1, 0));
 
       toast.success("Analysis deleted successfully");
+      setDeleteTargetId(null);
     } catch (err) {
       const message = err.message || "Failed to delete analysis.";
       setError(message);
@@ -203,6 +207,11 @@ export default function History() {
     } finally {
       setDeletingId("");
     }
+  };
+
+  const cancelDeleteAnalysis = () => {
+    if (deletingId) return;
+    setDeleteTargetId(null);
   };
 
   const formatDate = (date) => {
@@ -619,7 +628,7 @@ export default function History() {
                         </button>
 
                         <button
-                          onClick={() => deleteAnalysis(item._id)}
+                          onClick={() => requestDeleteAnalysis(item._id)}
                           disabled={deletingId === item._id}
                           className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-red-500/20 text-red-300 hover:bg-red-500/30 disabled:opacity-60 disabled:cursor-not-allowed rounded-xl transition"
                         >
@@ -658,6 +667,17 @@ export default function History() {
           </>
         )}
       </main>
+
+      <ConfirmModal
+        isOpen={Boolean(deleteTargetId)}
+        title="Delete this analysis?"
+        message="This will permanently remove this saved resume analysis from your history."
+        confirmText="Delete Analysis"
+        cancelText="Keep It"
+        loading={Boolean(deletingId)}
+        onConfirm={confirmDeleteAnalysis}
+        onCancel={cancelDeleteAnalysis}
+      />
     </GradientBackground>
   );
 }

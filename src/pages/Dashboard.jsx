@@ -8,6 +8,8 @@ import GlowButton from "../components/ui/GlowButton";
 import GradientBackground from "../components/layout/GradientBackground";
 import { getReadinessStyle } from "../utils/readiness";
 import SkeletonCard from "../components/ui/SkeletonCard";
+import toast from "react-hot-toast";
+import ConfirmModal from "../components/ui/ConfirmModal";
 
 import {
   getAnalysisHistoryAPI,
@@ -83,6 +85,8 @@ export default function Dashboard() {
   const promptVersion = analysis?.promptVersion || "";
 
   const readinessStyle = getReadinessStyle(jobReadiness);
+
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
 
   const fadeUp = {
     hidden: { opacity: 0, y: 24 },
@@ -171,22 +175,27 @@ export default function Dashboard() {
     }
   };
 
-  const deleteHistoryAnalysis = async (id) => {
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete this analysis?",
-    );
+  const requestDeleteHistoryAnalysis = (id) => {
+    setDeleteTargetId(id);
+  };
 
-    if (!confirmDelete) return;
+  const confirmDeleteHistoryAnalysis = async () => {
+    if (!deleteTargetId) return;
 
     try {
-      setDeletingId(id);
+      setDeletingId(deleteTargetId);
       setHistoryError("");
 
-      await deleteAnalysisAPI(id);
+      await deleteAnalysisAPI(deleteTargetId);
 
-      setRecentHistory((prev) => prev.filter((item) => item._id !== id));
+      setRecentHistory((prev) =>
+        prev.filter((item) => item._id !== deleteTargetId),
+      );
 
-      if (analysis?._id === id || analysis?.analysisId === id) {
+      if (
+        analysis?._id === deleteTargetId ||
+        analysis?.analysisId === deleteTargetId
+      ) {
         localStorage.removeItem("analysis");
         setAnalysis(null);
 
@@ -195,12 +204,21 @@ export default function Dashboard() {
           state: null,
         });
       }
+
+      toast.success("Analysis deleted successfully");
+      setDeleteTargetId(null);
     } catch (error) {
       console.error("Failed to delete analysis:", error.message);
       setHistoryError("Unable to delete this analysis.");
+      toast.error("Unable to delete this analysis.");
     } finally {
       setDeletingId("");
     }
+  };
+
+  const cancelDeleteHistoryAnalysis = () => {
+    if (deletingId) return;
+    setDeleteTargetId(null);
   };
 
   return (
@@ -775,7 +793,9 @@ export default function Dashboard() {
                           </button>
 
                           <button
-                            onClick={() => deleteHistoryAnalysis(item._id)}
+                            onClick={() =>
+                              requestDeleteHistoryAnalysis(item._id)
+                            }
                             disabled={deletingId === item._id}
                             className="inline-flex items-center justify-center gap-2 px-3 py-2 bg-red-500/20 text-red-300 hover:bg-red-500/30 disabled:opacity-60 disabled:cursor-not-allowed rounded-lg text-sm transition"
                           >
@@ -792,6 +812,17 @@ export default function Dashboard() {
           </>
         )}
       </main>
+
+      <ConfirmModal
+        isOpen={Boolean(deleteTargetId)}
+        title="Delete this analysis?"
+        message="This will permanently remove this saved analysis from your history."
+        confirmText="Delete Analysis"
+        cancelText="Keep It"
+        loading={Boolean(deletingId)}
+        onConfirm={confirmDeleteHistoryAnalysis}
+        onCancel={cancelDeleteHistoryAnalysis}
+      />
     </GradientBackground>
   );
 }

@@ -1,5 +1,6 @@
 import fs from "fs";
 import { parsePDF, analyzeText } from "../services/resumeService.js";
+import Analysis from "../models/Analysis.js";
 
 const deleteUploadedFile = (filePath) => {
   if (filePath && fs.existsSync(filePath)) {
@@ -80,11 +81,16 @@ export const analyzeResume = async (req, res) => {
 
     const text = await parsePDF(req.file.path);
     const result = await analyzeText(text, selectedRole);
+    const savedAnalysis = await Analysis.create({
+      resumeName: req.file.originalname,
+      ...result,
+    });
 
     deleteUploadedFile(req.file.path);
 
     res.json({
       message: "Resume analyzed successfully",
+      analysisId: savedAnalysis._id,
       ...result,
     });
   } catch (err) {

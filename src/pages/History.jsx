@@ -26,20 +26,29 @@ import {
   X,
   ListChecks,
   Sparkles,
-  FolderOpen,
   ShieldCheck,
+  Loader2,
 } from "lucide-react";
 
 export default function History() {
   const [history, setHistory] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
+
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [openingId, setOpeningId] = useState("");
   const [deletingId, setDeletingId] = useState("");
   const [error, setError] = useState("");
 
   const navigate = useNavigate();
+
+  const limit = 6;
 
   const fadeUp = {
     hidden: { opacity: 0, y: 22 },
@@ -55,24 +64,83 @@ export default function History() {
     },
   };
 
-  const fetchHistory = async () => {
+  const fetchHistory = async ({
+    pageToLoad = 1,
+    append = false,
+    search = searchTerm,
+    role = roleFilter,
+  } = {}) => {
     try {
-      setLoading(true);
+      if (append) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
+
       setError("");
 
-      const data = await getAnalysisHistoryAPI();
+      const data = await getAnalysisHistoryAPI({
+        search,
+        role,
+        page: pageToLoad,
+        limit,
+      });
 
-      setHistory(data.analyses || []);
+      const newAnalyses = data.analyses || [];
+
+      setHistory((prev) => (append ? [...prev, ...newAnalyses] : newAnalyses));
+      setPage(data.page || pageToLoad);
+      setPages(data.pages || 1);
+      setTotal(data.total || 0);
+      setHasMore(Boolean(data.hasMore));
     } catch (err) {
       setError(err.message || "Failed to load analysis history.");
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
   useEffect(() => {
-    fetchHistory();
+    fetchHistory({
+      pageToLoad: 1,
+      append: false,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+
+    fetchHistory({
+      pageToLoad: 1,
+      append: false,
+      search: searchTerm,
+      role: roleFilter,
+    });
+  };
+
+  const handleRoleChange = (role) => {
+    setRoleFilter(role);
+
+    fetchHistory({
+      pageToLoad: 1,
+      append: false,
+      search: searchTerm,
+      role,
+    });
+  };
+
+  const loadMore = () => {
+    if (!hasMore || loadingMore) return;
+
+    fetchHistory({
+      pageToLoad: page + 1,
+      append: true,
+      search: searchTerm,
+      role: roleFilter,
+    });
+  };
 
   const openAnalysis = async (id) => {
     try {
@@ -109,6 +177,7 @@ export default function History() {
       await deleteAnalysisAPI(id);
 
       setHistory((prev) => prev.filter((item) => item._id !== id));
+      setTotal((prev) => Math.max(prev - 1, 0));
     } catch (err) {
       setError(err.message || "Failed to delete analysis.");
     } finally {
@@ -134,30 +203,29 @@ export default function History() {
     return "success";
   };
 
-  const roles = ["All", ...new Set(history.map((item) => item.targetRole))];
-
-  const filteredHistory = history.filter((item) => {
-    const query = searchTerm.toLowerCase().trim();
-
-    const matchesSearch =
-      !query ||
-      item.resumeName?.toLowerCase().includes(query) ||
-      item.targetRole?.toLowerCase().includes(query) ||
-      item.roleTitle?.toLowerCase().includes(query) ||
-      item.aiProviderUsed?.toLowerCase().includes(query) ||
-      item.roadmapSource?.toLowerCase().includes(query);
-
-    const matchesRole = roleFilter === "All" || item.targetRole === roleFilter;
-
-    return matchesSearch && matchesRole;
-  });
-
   const clearFilters = () => {
     setSearchTerm("");
     setRoleFilter("All");
+
+    fetchHistory({
+      pageToLoad: 1,
+      append: false,
+      search: "",
+      role: "All",
+    });
   };
 
   const filtersActive = searchTerm.trim() !== "" || roleFilter !== "All";
+
+  const roles = [
+    "All",
+    "SDE",
+    "AI/ML",
+    "Data Science",
+    "DevOps",
+    "Frontend",
+    "Backend",
+  ];
 
   return (
     <GradientBackground>
@@ -202,7 +270,14 @@ export default function History() {
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45 }}
-            onClick={fetchHistory}
+            onClick={() =>
+              fetchHistory({
+                pageToLoad: 1,
+                append: false,
+                search: searchTerm,
+                role: roleFilter,
+              })
+            }
             disabled={loading}
             className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm transition w-fit disabled:opacity-60 disabled:cursor-not-allowed"
           >
@@ -225,7 +300,10 @@ export default function History() {
               </h3>
             </div>
 
-            <div className="flex flex-col md:flex-row md:items-end gap-4">
+            <form
+              onSubmit={handleSearchSubmit}
+              className="flex flex-col md:flex-row md:items-end gap-4"
+            >
               {/* Search */}
               <div className="flex-1">
                 <label className="flex items-center gap-2 text-sm text-gray-300 mb-2">
@@ -258,7 +336,7 @@ export default function History() {
 
                 <select
                   value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value)}
+                  onChange={(e) => handleRoleChange(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-gray-200 focus:outline-none focus:border-indigo-400 transition"
                 >
                   {roles.map((role) => (
@@ -269,9 +347,19 @@ export default function History() {
                 </select>
               </div>
 
+              <button
+                type="submit"
+                disabled={loading}
+                className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed rounded-xl text-sm text-white transition"
+              >
+                <Search size={16} />
+                Search
+              </button>
+
               {/* Clear Filters */}
               {filtersActive && (
                 <button
+                  type="button"
                   onClick={clearFilters}
                   className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-red-500/20 text-red-300 hover:bg-red-500/30 rounded-xl text-sm transition"
                 >
@@ -279,15 +367,21 @@ export default function History() {
                   Clear
                 </button>
               )}
-            </div>
+            </form>
 
             {/* Result count */}
-            {!loading && history.length > 0 && (
+            {!loading && (
               <div className="flex flex-wrap items-center gap-2 mt-5">
                 <AnimatedBadge>
                   <ListChecks size={13} />
-                  Showing {filteredHistory.length} of {history.length}
+                  Showing {history.length} of {total}
                 </AnimatedBadge>
+
+                {pages > 1 && (
+                  <AnimatedBadge>
+                    Page {page} of {pages}
+                  </AnimatedBadge>
+                )}
 
                 {roleFilter !== "All" && (
                   <AnimatedBadge variant="success">
@@ -341,7 +435,7 @@ export default function History() {
           </Card>
         )}
 
-        {/* EMPTY DATABASE STATE */}
+        {/* EMPTY DATABASE OR NO RESULT STATE */}
         {!loading && history.length === 0 && (
           <motion.div
             initial={{ opacity: 0, y: 22 }}
@@ -351,200 +445,209 @@ export default function History() {
             <Card>
               <div className="text-center py-12">
                 <div className="mx-auto w-16 h-16 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-300 mb-5">
-                  <FileText size={30} />
+                  {filtersActive ? (
+                    <Search size={30} />
+                  ) : (
+                    <FileText size={30} />
+                  )}
                 </div>
 
                 <h3 className="text-xl font-semibold text-indigo-400">
-                  No Analysis History Yet
+                  {filtersActive
+                    ? "No Matching Results"
+                    : "No Analysis History Yet"}
                 </h3>
 
                 <p className="text-sm md:text-base text-gray-400 mt-2 max-w-xl mx-auto">
-                  Analyze your resume first. Your saved results will appear here
-                  automatically.
+                  {filtersActive
+                    ? "Try changing your search keyword or role filter."
+                    : "Analyze your resume first. Your saved results will appear here automatically."}
                 </p>
 
                 <div className="mt-6">
-                  <GlowButton to="/upload" variant="solid">
-                    Analyze Resume
-                  </GlowButton>
+                  {filtersActive ? (
+                    <button
+                      onClick={clearFilters}
+                      className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm transition"
+                    >
+                      <X size={16} />
+                      Clear Filters
+                    </button>
+                  ) : (
+                    <GlowButton to="/upload" variant="solid">
+                      Analyze Resume
+                    </GlowButton>
+                  )}
                 </div>
-              </div>
-            </Card>
-          </motion.div>
-        )}
-
-        {/* NO MATCHING RESULTS */}
-        {!loading && history.length > 0 && filteredHistory.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 22 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45 }}
-          >
-            <Card>
-              <div className="text-center py-12">
-                <div className="mx-auto w-16 h-16 rounded-2xl bg-yellow-500/20 border border-yellow-500/30 flex items-center justify-center text-yellow-300 mb-5">
-                  <Search size={30} />
-                </div>
-
-                <h3 className="text-xl font-semibold text-yellow-300">
-                  No Matching Results
-                </h3>
-
-                <p className="text-sm md:text-base text-gray-400 mt-2 max-w-xl mx-auto">
-                  Try changing your search keyword or role filter.
-                </p>
-
-                <button
-                  onClick={clearFilters}
-                  className="mt-6 inline-flex items-center justify-center gap-2 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm transition"
-                >
-                  <X size={16} />
-                  Clear Filters
-                </button>
               </div>
             </Card>
           </motion.div>
         )}
 
         {/* HISTORY GRID */}
-        {!loading && filteredHistory.length > 0 && (
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            animate="visible"
-            className="grid grid-cols-1 lg:grid-cols-2 gap-6"
-          >
-            {filteredHistory.map((item) => (
-              <motion.div
-                key={item._id}
-                variants={fadeUp}
-                transition={{ duration: 0.45 }}
-              >
-                <Card>
-                  <div className="flex flex-col gap-5">
-                    {/* TOP */}
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 text-indigo-300 mb-2">
-                          <FileText size={18} />
-                          <p className="text-sm truncate">
-                            {item.resumeName || "Untitled Resume"}
-                          </p>
-                        </div>
+        {!loading && history.length > 0 && (
+          <>
+            <motion.div
+              variants={staggerContainer}
+              initial="hidden"
+              animate="visible"
+              className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+            >
+              {history.map((item) => (
+                <motion.div
+                  key={item._id}
+                  variants={fadeUp}
+                  transition={{ duration: 0.45 }}
+                >
+                  <Card>
+                    <div className="flex flex-col gap-5">
+                      {/* TOP */}
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 text-indigo-300 mb-2">
+                            <FileText size={18} />
+                            <p className="text-sm truncate">
+                              {item.resumeName || "Untitled Resume"}
+                            </p>
+                          </div>
 
-                        <h3 className="text-xl font-semibold text-gray-100">
-                          {item.targetRole}
-                        </h3>
-
-                        <p className="text-sm text-gray-400 mt-1">
-                          {item.roleTitle || "Target role analysis"}
-                        </p>
-                      </div>
-
-                      <AnimatedBadge
-                        variant={getScoreVariant(item.jobReadiness)}
-                      >
-                        {item.jobReadiness}% Ready
-                      </AnimatedBadge>
-                    </div>
-
-                    {/* META */}
-                    <div className="flex flex-wrap gap-2">
-                      <AnimatedBadge
-                        variant={
-                          item.roadmapSource === "ai" ? "success" : "warning"
-                        }
-                      >
-                        {item.roadmapSource === "ai"
-                          ? `${item.aiProviderUsed || "AI"} Powered`
-                          : "Fallback"}
-                      </AnimatedBadge>
-
-                      <AnimatedBadge>
-                        <Clock size={13} />
-                        {formatDate(item.createdAt)}
-                      </AnimatedBadge>
-                    </div>
-
-                    {/* MINI STATS */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-xl bg-white/5 border border-white/10 p-4">
-                        <div className="flex items-center gap-2 text-green-300 mb-1">
-                          <BarChart3 size={16} />
-                          <p className="text-sm">Readiness</p>
-                        </div>
-                        <p className="text-2xl font-bold">
-                          {item.jobReadiness}%
-                        </p>
-                      </div>
-
-                      <div className="rounded-xl bg-white/5 border border-white/10 p-4">
-                        <div className="flex items-center gap-2 text-indigo-300 mb-1">
-                          <Brain size={16} />
-                          <p className="text-sm">AI Provider</p>
-                        </div>
-                        <p className="text-lg font-semibold capitalize">
-                          {item.aiProviderUsed || "Fallback"}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* STATUS STRIP */}
-                    <div className="rounded-xl bg-white/5 border border-white/10 p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-300 shrink-0">
-                          {item.roadmapSource === "ai" ? (
-                            <Sparkles size={18} />
-                          ) : (
-                            <ShieldCheck size={18} />
-                          )}
-                        </div>
-
-                        <div>
-                          <h4 className="font-semibold text-gray-100">
-                            {item.roadmapSource === "ai"
-                              ? "AI-generated roadmap"
-                              : "Fallback roadmap"}
-                          </h4>
+                          <h3 className="text-xl font-semibold text-gray-100">
+                            {item.targetRole}
+                          </h3>
 
                           <p className="text-sm text-gray-400 mt-1">
-                            {item.roadmapSource === "ai"
-                              ? `Generated using ${
-                                  item.aiProviderUsed || "AI"
-                                } provider.`
-                              : "Generated using the rule-based recommendation engine."}
+                            {item.roleTitle || "Target role analysis"}
+                          </p>
+                        </div>
+
+                        <AnimatedBadge
+                          variant={getScoreVariant(item.jobReadiness)}
+                        >
+                          {item.jobReadiness}% Ready
+                        </AnimatedBadge>
+                      </div>
+
+                      {/* META */}
+                      <div className="flex flex-wrap gap-2">
+                        <AnimatedBadge
+                          variant={
+                            item.roadmapSource === "ai" ? "success" : "warning"
+                          }
+                        >
+                          {item.roadmapSource === "ai"
+                            ? `${item.aiProviderUsed || "AI"} Powered`
+                            : "Fallback"}
+                        </AnimatedBadge>
+
+                        <AnimatedBadge>
+                          <Clock size={13} />
+                          {formatDate(item.createdAt)}
+                        </AnimatedBadge>
+                      </div>
+
+                      {/* MINI STATS */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="rounded-xl bg-white/5 border border-white/10 p-4">
+                          <div className="flex items-center gap-2 text-green-300 mb-1">
+                            <BarChart3 size={16} />
+                            <p className="text-sm">Readiness</p>
+                          </div>
+                          <p className="text-2xl font-bold">
+                            {item.jobReadiness}%
+                          </p>
+                        </div>
+
+                        <div className="rounded-xl bg-white/5 border border-white/10 p-4">
+                          <div className="flex items-center gap-2 text-indigo-300 mb-1">
+                            <Brain size={16} />
+                            <p className="text-sm">AI Provider</p>
+                          </div>
+                          <p className="text-lg font-semibold capitalize">
+                            {item.aiProviderUsed || "Fallback"}
                           </p>
                         </div>
                       </div>
-                    </div>
 
-                    {/* ACTIONS */}
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <button
-                        onClick={() => openAnalysis(item._id)}
-                        disabled={openingId === item._id}
-                        className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed rounded-xl text-white transition flex-1"
-                      >
-                        <Eye size={16} />
-                        {openingId === item._id
-                          ? "Opening..."
-                          : "Open Dashboard"}
-                      </button>
+                      {/* STATUS STRIP */}
+                      <div className="rounded-xl bg-white/5 border border-white/10 p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-300 shrink-0">
+                            {item.roadmapSource === "ai" ? (
+                              <Sparkles size={18} />
+                            ) : (
+                              <ShieldCheck size={18} />
+                            )}
+                          </div>
 
-                      <button
-                        onClick={() => deleteAnalysis(item._id)}
-                        disabled={deletingId === item._id}
-                        className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-red-500/20 text-red-300 hover:bg-red-500/30 disabled:opacity-60 disabled:cursor-not-allowed rounded-xl transition"
-                      >
-                        <Trash2 size={16} />
-                        {deletingId === item._id ? "Deleting..." : "Delete"}
-                      </button>
+                          <div>
+                            <h4 className="font-semibold text-gray-100">
+                              {item.roadmapSource === "ai"
+                                ? "AI-generated roadmap"
+                                : "Fallback roadmap"}
+                            </h4>
+
+                            <p className="text-sm text-gray-400 mt-1">
+                              {item.roadmapSource === "ai"
+                                ? `Generated using ${
+                                    item.aiProviderUsed || "AI"
+                                  } provider.`
+                                : "Generated using the rule-based recommendation engine."}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* ACTIONS */}
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <button
+                          onClick={() => openAnalysis(item._id)}
+                          disabled={openingId === item._id}
+                          className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed rounded-xl text-white transition flex-1"
+                        >
+                          <Eye size={16} />
+                          {openingId === item._id
+                            ? "Opening..."
+                            : "Open Dashboard"}
+                        </button>
+
+                        <button
+                          onClick={() => deleteAnalysis(item._id)}
+                          disabled={deletingId === item._id}
+                          className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-red-500/20 text-red-300 hover:bg-red-500/30 disabled:opacity-60 disabled:cursor-not-allowed rounded-xl transition"
+                        >
+                          <Trash2 size={16} />
+                          {deletingId === item._id ? "Deleting..." : "Delete"}
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                </Card>
-              </motion.div>
-            ))}
-          </motion.div>
+                  </Card>
+                </motion.div>
+              ))}
+            </motion.div>
+
+            {/* LOAD MORE */}
+            {hasMore && (
+              <div className="mt-8 flex justify-center">
+                <button
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm transition disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {loadingMore ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Loading More...
+                    </>
+                  ) : (
+                    <>
+                      <ListChecks size={16} />
+                      Load More
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </main>
     </GradientBackground>

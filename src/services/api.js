@@ -30,8 +30,26 @@ export const analyzeResumeAPI = async (file, targetRole) => {
   }
 };
 
-export const getAnalysisHistoryAPI = async () => {
-  const res = await fetch(`${API_BASE_URL}/analysis`);
+export const getAnalysisHistoryAPI = async ({
+  search = "",
+  role = "All",
+  page = 1,
+  limit = 6,
+} = {}) => {
+  const params = new URLSearchParams();
+
+  params.append("page", page);
+  params.append("limit", limit);
+
+  if (search.trim()) {
+    params.append("search", search.trim());
+  }
+
+  if (role && role !== "All") {
+    params.append("role", role);
+  }
+
+  const res = await fetch(`${API_BASE_URL}/analysis?${params.toString()}`);
 
   const data = await res.json();
 
@@ -51,7 +69,7 @@ export const getAnalysisByIdAPI = async (id) => {
     throw new Error(data.details || data.error || "Failed to fetch analysis.");
   }
 
-  return data;
+  return data.analysis;
 };
 
 export const deleteAnalysisAPI = async (id) => {

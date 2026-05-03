@@ -7,6 +7,7 @@ import AnimatedBadge from "../components/ui/AnimatedBadge";
 import GlowButton from "../components/ui/GlowButton";
 import GradientBackground from "../components/layout/GradientBackground";
 import { getReadinessStyle } from "../utils/readiness";
+import SkeletonCard from "../components/ui/SkeletonCard";
 
 import {
   getAnalysisHistoryAPI,

@@ -5,12 +5,17 @@ import GradientBackground from "../components/layout/GradientBackground";
 import Card from "../components/ui/Card";
 import GlowButton from "../components/ui/GlowButton";
 import AnimatedBadge from "../components/ui/AnimatedBadge";
+import toast from "react-hot-toast";
+import SkeletonCard from "../components/ui/SkeletonCard";
+
 import {
   getAnalysisHistoryAPI,
   getAnalysisByIdAPI,
   deleteAnalysisAPI,
 } from "../services/api";
+
 import { motion } from "framer-motion";
+
 import {
   Clock,
   FileText,
@@ -94,7 +99,9 @@ export default function History() {
       setTotal(data.total || 0);
       setHasMore(Boolean(data.hasMore));
     } catch (err) {
-      setError(err.message || "Failed to load analysis history.");
+      const message = err.message || "Failed to load analysis history.";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -109,15 +116,19 @@ export default function History() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSearchSubmit = (e) => {
+  const handleSearchSubmit = async (e) => {
     e.preventDefault();
 
-    fetchHistory({
+    await fetchHistory({
       pageToLoad: 1,
       append: false,
       search: searchTerm,
       role: roleFilter,
     });
+
+    if (searchTerm.trim()) {
+      toast.success("Search applied");
+    }
   };
 
   const handleRoleChange = (role) => {
@@ -131,10 +142,10 @@ export default function History() {
     });
   };
 
-  const loadMore = () => {
+  const loadMore = async () => {
     if (!hasMore || loadingMore) return;
 
-    fetchHistory({
+    await fetchHistory({
       pageToLoad: page + 1,
       append: true,
       search: searchTerm,
@@ -156,8 +167,13 @@ export default function History() {
           analysis,
         },
       });
+
+      toast.success("Analysis opened successfully");
+
     } catch (err) {
-      setError(err.message || "Failed to open analysis.");
+      const message = err.message || "Failed to open analysis.";
+      setError(message);
+      toast.error(message);
     } finally {
       setOpeningId("");
     }
@@ -178,8 +194,12 @@ export default function History() {
 
       setHistory((prev) => prev.filter((item) => item._id !== id));
       setTotal((prev) => Math.max(prev - 1, 0));
+
+      toast.success("Analysis deleted successfully");
     } catch (err) {
-      setError(err.message || "Failed to delete analysis.");
+      const message = err.message || "Failed to delete analysis.";
+      setError(message);
+      toast.error(message);
     } finally {
       setDeletingId("");
     }
@@ -203,16 +223,18 @@ export default function History() {
     return "success";
   };
 
-  const clearFilters = () => {
+  const clearFilters = async () => {
     setSearchTerm("");
     setRoleFilter("All");
 
-    fetchHistory({
+    await fetchHistory({
       pageToLoad: 1,
       append: false,
       search: "",
       role: "All",
     });
+
+    toast.success("Filters cleared");
   };
 
   const filtersActive = searchTerm.trim() !== "" || roleFilter !== "All";
@@ -418,22 +440,8 @@ export default function History() {
           </motion.div>
         )}
 
-        {/* LOADING */}
-        {loading && (
-          <Card>
-            <div className="text-center py-12">
-              <div className="mx-auto mb-5 h-12 w-12 rounded-full border-4 border-indigo-500/20 border-t-indigo-400 animate-spin"></div>
-
-              <h3 className="text-xl font-semibold text-indigo-400">
-                Loading History...
-              </h3>
-
-              <p className="text-sm md:text-base text-gray-400 mt-2">
-                Fetching saved analyses from MongoDB.
-              </p>
-            </div>
-          </Card>
-        )}
+        {/* LOADING SKELETON */}
+        {loading && <SkeletonCard count={4} />}
 
         {/* EMPTY DATABASE OR NO RESULT STATE */}
         {!loading && history.length === 0 && (

@@ -4,11 +4,12 @@ import {
   getAnalysisById,
   deleteAnalysis,
 } from "../controllers/analysisController.js";
+import { validateObjectId } from "../middleware/validateObjectId.js";
 
 const router = express.Router();
 
 router.get("/", getAllAnalyses);
-router.get("/:id", getAnalysisById);
-router.delete("/:id", deleteAnalysis);
+router.get("/:id", validateObjectId, getAnalysisById);
+router.delete("/:id", validateObjectId, deleteAnalysis);
 
 export default router;

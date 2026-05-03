@@ -5,22 +5,24 @@ import {
   extractResume,
   analyzeResume,
 } from "../controllers/resumeController.js";
+import { uploadErrorHandler } from "../middleware/uploadErrorHandler.js";
 
 const router = express.Router();
 
 const storage = multer.diskStorage({
   destination: "uploads/",
   filename: (req, file, cb) => {
-    cb(null, Date.now() + "-" + file.originalname);
+    const safeFileName = file.originalname.replace(/\s+/g, "-");
+    cb(null, `${Date.now()}-${safeFileName}`);
   },
 });
 
 const fileFilter = (req, file, cb) => {
-  if (file.mimetype === "application/pdf") {
-    cb(null, true);
-  } else {
-    cb(new Error("Only PDF files are allowed"), false);
+  if (file.mimetype !== "application/pdf") {
+    return cb(new Error("Only PDF files are allowed"), false);
   }
+
+  cb(null, true);
 };
 
 const upload = multer({
@@ -31,21 +33,25 @@ const upload = multer({
   },
 });
 
-const handleSingleResumeUpload = (req, res, next) => {
-  upload.single("resume")(req, res, (err) => {
-    if (err) {
-      return res.status(400).json({
-        error: "File upload error",
-        details: err.message,
-      });
-    }
+router.post(
+  "/upload",
+  upload.single("resume"),
+  uploadErrorHandler,
+  uploadResume,
+);
 
-    next();
-  });
-};
+router.post(
+  "/extract",
+  upload.single("resume"),
+  uploadErrorHandler,
+  extractResume,
+);
 
-router.post("/upload", handleSingleResumeUpload, uploadResume);
-router.post("/extract", handleSingleResumeUpload, extractResume);
-router.post("/analyze", handleSingleResumeUpload, analyzeResume);
+router.post(
+  "/analyze",
+  upload.single("resume"),
+  uploadErrorHandler,
+  analyzeResume,
+);
 
 export default router;

@@ -73,7 +73,7 @@ const validateAIResult = (result) => {
           project:
             item.project || "Build a small practical project using this skill.",
           difficulty: item.difficulty || "Beginner",
-          timeEstimate: item.timeEstimate || "5-7 hours",
+          timeEstimate: item.timeEstimate || "10-15 hours",
         }))
       : [],
   };
@@ -130,17 +130,17 @@ Required JSON format:
       "skill": "skill name",
       "learn": "exact topics to learn",
       "howToLearn": "step-by-step learning method",
-      "resource": "one free resource name",
+      "resource": "one or two free resource name",
       "project": "mini project idea",
       "difficulty": "Beginner | Intermediate | Advanced",
-      "timeEstimate": "estimated time like 5-7 hours"
+      "timeEstimate": "estimated time like 10-15 hours"
     }
   ]
 }
 
 Rules:
 - Generate roadmap only for missing skills.
-- Maximum 8 weeks.
+- Maximum 12 weeks.
 - Group related skills when useful.
 - Keep it practical for a college student.
 - Use free learning resources only.
@@ -204,6 +204,8 @@ export const generateAIRoadmap = async ({
       ],
       aiRoadmap: [],
       aiProviderUsed: "none",
+      aiModelUsed: "none",
+      promptVersion: aiConfig.promptVersion,
     };
   }
 
@@ -232,6 +234,9 @@ export const generateAIRoadmap = async ({
       return {
         ...validated,
         aiProviderUsed: provider,
+        aiModelUsed:
+          provider === "gemini" ? aiConfig.geminiModel : aiConfig.openaiModel,
+        promptVersion: aiConfig.promptVersion,
       };
     } catch (error) {
       console.error(`${provider} roadmap generation failed:`, error.message);

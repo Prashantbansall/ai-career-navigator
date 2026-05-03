@@ -4,6 +4,7 @@ import Home from "./pages/Home";
 import Upload from "./pages/Upload";
 import Dashboard from "./pages/Dashboard";
 import History from "./pages/History";
+import AnalysisDetail from "./pages/AnalysisDetail";
 
 function App() {
   return (
@@ -36,6 +37,7 @@ function App() {
         <Route path="/upload" element={<Upload />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/history" element={<History />} />
+        <Route path="/analysis/:id" element={<AnalysisDetail />} />
       </Routes>
     </BrowserRouter>
   );

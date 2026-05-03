@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../components/layout/Navbar";
 import GradientBackground from "../components/layout/GradientBackground";
 import Card from "../components/ui/Card";
@@ -616,15 +616,21 @@ export default function History() {
 
                       {/* ACTIONS */}
                       <div className="flex flex-col sm:flex-row gap-3">
+                        <Link
+                          to={`/analysis/${item._id}`}
+                          className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-gray-200 transition flex-1"
+                        >
+                          <Eye size={16} />
+                          View Detail
+                        </Link>
+
                         <button
                           onClick={() => openAnalysis(item._id)}
                           disabled={openingId === item._id}
                           className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed rounded-xl text-white transition flex-1"
                         >
                           <Eye size={16} />
-                          {openingId === item._id
-                            ? "Opening..."
-                            : "Open Dashboard"}
+                          {openingId === item._id ? "Opening..." : "Open Dashboard"}
                         </button>
 
                         <button

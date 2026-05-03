@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import Navbar from "../components/layout/Navbar";
 import { motion } from "framer-motion";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import Card from "../components/ui/Card";
 import AnimatedBadge from "../components/ui/AnimatedBadge";
 import GlowButton from "../components/ui/GlowButton";
@@ -783,6 +783,13 @@ export default function Dashboard() {
                         </div>
 
                         <div className="flex gap-2 mt-4">
+                          <Link
+                            to={`/analysis/${item._id}`}
+                            className="inline-flex items-center justify-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm text-gray-200 transition"
+                          >
+                            Detail
+                          </Link>
+                          
                           <button
                             onClick={() => openHistoryAnalysis(item._id)}
                             disabled={openingId === item._id}

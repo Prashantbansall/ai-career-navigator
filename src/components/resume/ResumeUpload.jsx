@@ -1,8 +1,7 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { useNavigate } from "react-router-dom";
-import { analyzeResumeAPI } from "../../services/api";
-import { TARGET_ROLES } from "../../utils/roles";
+import { analyzeResumeAPI, getRolesAPI } from "../../services/api";
 import GlowButton from "../ui/GlowButton";
 import toast from "react-hot-toast";
 
@@ -12,11 +11,44 @@ export default function ResumeUpload() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const [roles, setRoles] = useState([]);
+  const [rolesLoading, setRolesLoading] = useState(false);
+
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        setRolesLoading(true);
+
+        const data = await getRolesAPI();
+
+        setRoles(data);
+      } catch (error) {
+        console.error("Failed to load roles:", error.message);
+
+        // Fallback roles if backend is not running
+        setRoles([
+          { value: "SDE", label: "Software Development Engineer" },
+          { value: "AI/ML", label: "AI/ML Engineer" },
+          { value: "Data Science", label: "Data Scientist" },
+          { value: "DevOps", label: "DevOps Engineer" },
+          { value: "Frontend", label: "Frontend Developer" },
+          { value: "Backend", label: "Backend Developer" },
+        ]);
+
+        toast.error("Could not load roles from backend. Using default roles.");
+      } finally {
+        setRolesLoading(false);
+      }
+    };
+
+    fetchRoles();
+  }, []);
 
   const onDrop = useCallback((acceptedFiles, rejectedFiles) => {
     if (rejectedFiles.length > 0) {
-      setError("Only PDF files are supported.");
+      setError("Only PDF files up to 5 MB are supported.");
       return;
     }
 
@@ -45,6 +77,13 @@ export default function ResumeUpload() {
   const handleAnalyzeResume = async () => {
     if (!file) {
       setError("Please upload a resume first.");
+      toast.error("Please upload a resume first.");
+      return;
+    }
+
+    if (!targetRole) {
+      setError("Please select a target role.");
+      toast.error("Please select a target role.");
       return;
     }
 
@@ -55,6 +94,7 @@ export default function ResumeUpload() {
       const data = await analyzeResumeAPI(file, targetRole);
 
       localStorage.setItem("analysis", JSON.stringify(data));
+
       toast.success("Resume analyzed successfully");
 
       navigate("/dashboard", {
@@ -65,6 +105,7 @@ export default function ResumeUpload() {
     } catch (err) {
       const message =
         err.message || "Resume analysis failed. Please try again.";
+
       setError(message);
       toast.error(message);
     } finally {
@@ -83,14 +124,37 @@ export default function ResumeUpload() {
         <select
           value={targetRole}
           onChange={(e) => setTargetRole(e.target.value)}
-          className="w-full bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl px-4 py-3 text-gray-200 focus:outline-none focus:border-indigo-400"
+          disabled={rolesLoading || loading}
+          className="w-full bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl px-4 py-3 text-gray-200 focus:outline-none focus:border-indigo-400 disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          {TARGET_ROLES.map((role) => (
-            <option key={role} className="bg-[#0f172a]" value={role}>
-              {role}
+          {rolesLoading && (
+            <option value="SDE" className="bg-[#0f172a]">
+              Loading roles...
             </option>
-          ))}
+          )}
+
+          {!rolesLoading &&
+            roles.length > 0 &&
+            roles.map((role) => (
+              <option
+                key={role.value}
+                value={role.value}
+                className="bg-[#0f172a]"
+              >
+                {role.value} - {role.label}
+              </option>
+            ))}
+
+          {!rolesLoading && roles.length === 0 && (
+            <option value="SDE" className="bg-[#0f172a]">
+              SDE - Software Development Engineer
+            </option>
+          )}
         </select>
+
+        <p className="text-xs text-gray-500 mt-2">
+          Roles are loaded from the backend API.
+        </p>
       </div>
 
       {/* Upload Box */}
@@ -126,7 +190,7 @@ export default function ResumeUpload() {
 
           <button
             onClick={removeFile}
-            className="text-red-400 hover:text-red-500 text-sm self-start md:self-auto"
+            className="text-red-400 hover:text-red-500 text-sm self-start md:self-auto disabled:opacity-60 disabled:cursor-not-allowed"
             disabled={loading}
           >
             Remove
@@ -145,7 +209,7 @@ export default function ResumeUpload() {
       {file && (
         <GlowButton
           onClick={handleAnalyzeResume}
-          disabled={loading}
+          disabled={loading || rolesLoading}
           className="mt-6"
           variant="solid"
         >

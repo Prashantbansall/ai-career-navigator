@@ -100,3 +100,15 @@ export const deleteAnalysisAPI = async (id) => {
     handleNetworkError(error);
   }
 };
+
+export const getRolesAPI = async () => {
+  const res = await fetch(`${API_BASE_URL}/roles`);
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(data.error || "Failed to fetch roles.");
+  }
+
+  return data.data.roles;
+};

@@ -6,6 +6,7 @@ import rateLimit from "express-rate-limit";
 import resumeRoutes from "./routes/resumeRoutes.js";
 import analysisRoutes from "./routes/analysisRoutes.js";
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
+import roleRoutes from "./routes/roleRoutes.js";
 
 const app = express();
 
@@ -62,6 +63,7 @@ app.get("/api/health", (req, res) => {
 
 app.use("/api/resume", resumeRoutes);
 app.use("/api/analysis", analysisRoutes);
+app.use("/api/roles", roleRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

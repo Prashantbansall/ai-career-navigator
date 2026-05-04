@@ -4,6 +4,7 @@ import { extractSkills } from "../utils/skillExtractor.js";
 import { roleSkills } from "../utils/roleSkills.js";
 import { generateRoadmap } from "./roadmapService.js";
 import { generateAIRoadmap } from "./aiRoadmapService.js";
+import AppError from "../utils/AppError.js";
 
 const require = createRequire(import.meta.url);
 const pdfParse = require("pdf-parse");
@@ -29,13 +30,16 @@ export const parsePDF = async (filePath) => {
 };
 
 export const analyzeText = async (text, selectedRole = "SDE") => {
+  // if (!roleSkills[selectedRole]) {
+  //   const validRoles = Object.keys(roleSkills).join(", ");
+  //   const error = new Error(
+  //     `Invalid target role. Valid roles are: ${validRoles}`,
+  //   );
+  //   error.statusCode = 400;
+  //   throw error;
+  // }
   if (!roleSkills[selectedRole]) {
-    const validRoles = Object.keys(roleSkills).join(", ");
-    const error = new Error(
-      `Invalid target role. Valid roles are: ${validRoles}`,
-    );
-    error.statusCode = 400;
-    throw error;
+    throw new AppError("Invalid target role", 400);
   }
 
   const extractedSkills = extractSkills(text);

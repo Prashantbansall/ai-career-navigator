@@ -6,6 +6,7 @@ import {
   analyzeResume,
 } from "../controllers/resumeController.js";
 import { uploadErrorHandler } from "../middleware/uploadErrorHandler.js";
+import { validateTargetRole } from "../middleware/validateTargetRole.js";
 
 const router = express.Router();
 
@@ -51,6 +52,7 @@ router.post(
   "/analyze",
   upload.single("resume"),
   uploadErrorHandler,
+  validateTargetRole,
   analyzeResume,
 );
 

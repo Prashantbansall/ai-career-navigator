@@ -1,0 +1,65 @@
+name: AI Career Navigator CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  frontend:
+    name: Frontend Build and Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Run frontend tests
+        run: npm test
+
+      - name: Build frontend
+        run: npm run build
+
+  backend:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install backend dependencies
+        run: npm ci
+
+      - name: Run backend tests
+        run: npm test
+        env:
+          NODE_ENV: test
+          CLIENT_URLS: http://localhost:5173
+          RATE_LIMIT_MAX: 1000
+          JSON_LIMIT: 1mb
+          AI_PROVIDER: gemini
+          AI_FALLBACK_PROVIDER: openai
+          AI_PROMPT_VERSION: career-roadmap-v1
+          GEMINI_MODEL: gemini-2.5-flash
+          GEMINI_API_KEY: test-key
+          OPENAI_MODEL: gpt-5.5
+          OPENAI_API_KEY: test-key

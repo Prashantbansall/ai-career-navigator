@@ -1,6 +1,8 @@
 import fs from "fs";
 import { parsePDF, analyzeText } from "../services/resumeService.js";
 import Analysis from "../models/Analysis.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
+import AppError from "../utils/AppError.js";
 
 const deleteUploadedFile = (filePath) => {
   if (filePath && fs.existsSync(filePath)) {
@@ -8,101 +10,81 @@ const deleteUploadedFile = (filePath) => {
   }
 };
 
-const validateUploadedFile = (req, res) => {
+const validateUploadedFile = (req) => {
   if (!req.file) {
-    res.status(400).json({ error: "No resume file uploaded" });
-    return false;
+    throw new AppError("No resume file uploaded", 400);
   }
 
   if (req.file.mimetype !== "application/pdf") {
-    deleteUploadedFile(req.file.path);
-    res.status(400).json({ error: "Only PDF resumes are allowed" });
-    return false;
+    throw new AppError("Only PDF resumes are allowed", 400);
   }
-
-  return true;
 };
 
-export const uploadResume = async (req, res) => {
+export const uploadResume = asyncHandler(async (req, res) => {
   try {
-    if (!validateUploadedFile(req, res)) return;
-
-    deleteUploadedFile(req.file.path);
+    validateUploadedFile(req);
 
     res.json({
+      success: true,
       message: "Resume uploaded successfully",
-      file: req.file.filename,
+      data: {
+        file: req.file.filename,
+        originalName: req.file.originalname,
+      },
     });
-  } catch (err) {
-    console.error("Upload error:", err);
-
-    if (req.file?.path) {
-      deleteUploadedFile(req.file.path);
-    }
-
-    res.status(500).json({
-      error: "Upload failed",
-      details: err.message,
-    });
+  } finally {
+    deleteUploadedFile(req.file?.path);
   }
-};
+});
 
-export const extractResume = async (req, res) => {
+export const extractResume = asyncHandler(async (req, res) => {
   try {
-    if (!validateUploadedFile(req, res)) return;
+    validateUploadedFile(req);
 
     const text = await parsePDF(req.file.path);
 
-    deleteUploadedFile(req.file.path);
-
     res.json({
+      success: true,
       message: "Text extracted successfully",
-      extractedText: text.substring(0, 3000),
+      data: {
+        extractedText: text.substring(0, 3000),
+      },
     });
-  } catch (err) {
-    console.error("Extraction error:", err);
-
-    if (req.file?.path) {
-      deleteUploadedFile(req.file.path);
-    }
-
-    res.status(err.statusCode || 500).json({
-      error: "Extraction failed",
-      details: err.message,
-    });
+  } finally {
+    deleteUploadedFile(req.file?.path);
   }
-};
+});
 
-export const analyzeResume = async (req, res) => {
+export const analyzeResume = asyncHandler(async (req, res) => {
   try {
-    if (!validateUploadedFile(req, res)) return;
+    validateUploadedFile(req);
 
     const selectedRole = req.body.targetRole || "SDE";
 
     const text = await parsePDF(req.file.path);
     const result = await analyzeText(text, selectedRole);
+
     const savedAnalysis = await Analysis.create({
       resumeName: req.file.originalname,
       ...result,
     });
 
-    deleteUploadedFile(req.file.path);
+    const analysisResponse = {
+      analysisId: savedAnalysis._id,
+      _id: savedAnalysis._id,
+      resumeName: savedAnalysis.resumeName,
+      createdAt: savedAnalysis.createdAt,
+      ...result,
+    };
 
     res.json({
+      success: true,
       message: "Resume analyzed successfully",
-      analysisId: savedAnalysis._id,
-      ...result,
+      data: {
+        analysis: analysisResponse,
+      },
     });
-  } catch (err) {
-    console.error("Analysis error:", err);
-
-    if (req.file?.path) {
-      deleteUploadedFile(req.file.path);
-    }
-
-    res.status(err.statusCode || 500).json({
-      error: "Analysis failed",
-      details: err.message,
-    });
+  } finally {
+    deleteUploadedFile(req.file?.path);
   }
-};
+});

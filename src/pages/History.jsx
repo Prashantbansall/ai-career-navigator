@@ -172,7 +172,6 @@ export default function History() {
       });
 
       toast.success("Analysis opened successfully");
-
     } catch (err) {
       const message = err.message || "Failed to open analysis.";
       setError(message);
@@ -630,7 +629,9 @@ export default function History() {
                           className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed rounded-xl text-white transition flex-1"
                         >
                           <Eye size={16} />
-                          {openingId === item._id ? "Opening..." : "Open Dashboard"}
+                          {openingId === item._id
+                            ? "Opening..."
+                            : "Open Dashboard"}
                         </button>
 
                         <button

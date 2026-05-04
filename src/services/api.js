@@ -1,4 +1,31 @@
-const API_BASE_URL = "http://localhost:5000/api";
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+
+const parseResponse = async (res) => {
+  let data = null;
+
+  try {
+    data = await res.json();
+  } catch {
+    data = null;
+  }
+
+  if (!res.ok) {
+    throw new Error(
+      data?.error || data?.details || data?.message || "Something went wrong.",
+    );
+  }
+
+  return data;
+};
+
+const handleNetworkError = (error) => {
+  if (error.message === "Failed to fetch") {
+    throw new Error("Backend server is not running. Please start the backend.");
+  }
+
+  throw error;
+};
 
 export const analyzeResumeAPI = async (file, targetRole) => {
   try {
@@ -12,21 +39,11 @@ export const analyzeResumeAPI = async (file, targetRole) => {
       body: formData,
     });
 
-    const data = await res.json();
+    const data = await parseResponse(res);
 
-    if (!res.ok) {
-      throw new Error(data.details || data.error || "Resume analysis failed.");
-    }
-
-    return data;
+    return data?.data?.analysis || data;
   } catch (error) {
-    if (error.message === "Failed to fetch") {
-      throw new Error(
-        "Backend server is not running. Please start the backend.",
-      );
-    }
-
-    throw error;
+    handleNetworkError(error);
   }
 };
 
@@ -36,52 +53,50 @@ export const getAnalysisHistoryAPI = async ({
   page = 1,
   limit = 6,
 } = {}) => {
-  const params = new URLSearchParams();
+  try {
+    const params = new URLSearchParams();
 
-  params.append("page", page);
-  params.append("limit", limit);
+    params.append("page", String(page));
+    params.append("limit", String(limit));
 
-  if (search.trim()) {
-    params.append("search", search.trim());
+    if (search.trim()) {
+      params.append("search", search.trim());
+    }
+
+    if (role && role !== "All") {
+      params.append("role", role);
+    }
+
+    const res = await fetch(`${API_BASE_URL}/analysis?${params.toString()}`);
+    const data = await parseResponse(res);
+
+    return data?.data || data;
+  } catch (error) {
+    handleNetworkError(error);
   }
-
-  if (role && role !== "All") {
-    params.append("role", role);
-  }
-
-  const res = await fetch(`${API_BASE_URL}/analysis?${params.toString()}`);
-
-  const data = await res.json();
-
-  if (!res.ok) {
-    throw new Error(data.details || data.error || "Failed to fetch history.");
-  }
-
-  return data;
 };
 
 export const getAnalysisByIdAPI = async (id) => {
-  const res = await fetch(`${API_BASE_URL}/analysis/${id}`);
+  try {
+    const res = await fetch(`${API_BASE_URL}/analysis/${id}`);
+    const data = await parseResponse(res);
 
-  const data = await res.json();
-
-  if (!res.ok) {
-    throw new Error(data.details || data.error || "Failed to fetch analysis.");
+    return data?.data?.analysis || data?.analysis || data;
+  } catch (error) {
+    handleNetworkError(error);
   }
-
-  return data.analysis;
 };
 
 export const deleteAnalysisAPI = async (id) => {
-  const res = await fetch(`${API_BASE_URL}/analysis/${id}`, {
-    method: "DELETE",
-  });
+  try {
+    const res = await fetch(`${API_BASE_URL}/analysis/${id}`, {
+      method: "DELETE",
+    });
 
-  const data = await res.json();
+    const data = await parseResponse(res);
 
-  if (!res.ok) {
-    throw new Error(data.details || data.error || "Failed to delete analysis.");
+    return data?.data || data;
+  } catch (error) {
+    handleNetworkError(error);
   }
-
-  return data;
 };

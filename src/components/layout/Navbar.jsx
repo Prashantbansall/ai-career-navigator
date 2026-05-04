@@ -70,6 +70,14 @@ export default function Navbar() {
           >
             Dashboard
           </NavLink>
+
+          <NavLink
+            to="/history"
+            className={linkClass}
+            onClick={() => setMenuOpen(false)}
+          >
+            History
+          </NavLink>
         </div>
       )}
     </nav>

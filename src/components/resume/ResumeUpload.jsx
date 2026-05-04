@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { analyzeResumeAPI } from "../../services/api";
 import { TARGET_ROLES } from "../../utils/roles";
 import GlowButton from "../ui/GlowButton";
+import toast from "react-hot-toast";
 
 export default function ResumeUpload() {
   const [file, setFile] = useState(null);
@@ -54,6 +55,7 @@ export default function ResumeUpload() {
       const data = await analyzeResumeAPI(file, targetRole);
 
       localStorage.setItem("analysis", JSON.stringify(data));
+      toast.success("Resume analyzed successfully");
 
       navigate("/dashboard", {
         state: {
@@ -61,7 +63,10 @@ export default function ResumeUpload() {
         },
       });
     } catch (err) {
-      setError(err.message || "Resume analysis failed. Please try again.");
+      const message =
+        err.message || "Resume analysis failed. Please try again.";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }

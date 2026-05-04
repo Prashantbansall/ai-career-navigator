@@ -1,9 +1,8 @@
+import AppError from "../utils/AppError.js";
+
 export const uploadErrorHandler = (err, req, res, next) => {
   if (err) {
-    return res.status(400).json({
-      success: false,
-      error: err.message || "File upload failed",
-    });
+    return next(new AppError(err.message || "File upload failed", 400));
   }
 
   next();

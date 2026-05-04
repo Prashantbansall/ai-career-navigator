@@ -789,7 +789,7 @@ export default function Dashboard() {
                           >
                             Detail
                           </Link>
-                          
+
                           <button
                             onClick={() => openHistoryAnalysis(item._id)}
                             disabled={openingId === item._id}

@@ -5,11 +5,34 @@ export const notFound = (req, res, next) => {
 };
 
 export const errorHandler = (err, req, res, next) => {
-  const statusCode = err.statusCode || res.statusCode || 500;
+  let statusCode = err.statusCode || res.statusCode || 500;
+  let message = err.message || "Internal Server Error";
 
-  res.status(statusCode).json({
+  if (err.name === "CastError") {
+    statusCode = 400;
+    message = "Invalid resource ID";
+  }
+
+  if (err.name === "ValidationError") {
+    statusCode = 400;
+    message = Object.values(err.errors)
+      .map((item) => item.message)
+      .join(", ");
+  }
+
+  if (err.code === 11000) {
+    statusCode = 409;
+    message = "Duplicate resource found";
+  }
+
+  const response = {
     success: false,
-    error: err.message || "Server Error",
-    stack: process.env.NODE_ENV === "production" ? undefined : err.stack,
-  });
+    error: message,
+  };
+
+  if (process.env.NODE_ENV === "development") {
+    response.stack = err.stack;
+  }
+
+  res.status(statusCode).json(response);
 };

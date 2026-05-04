@@ -1,10 +1,26 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
-import Home from "./pages/Home";
-import Upload from "./pages/Upload";
-import Dashboard from "./pages/Dashboard";
-import History from "./pages/History";
-import AnalysisDetail from "./pages/AnalysisDetail";
+import GradientBackground from "./components/layout/GradientBackground";
+
+const Home = lazy(() => import("./pages/Home"));
+const Upload = lazy(() => import("./pages/Upload"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const History = lazy(() => import("./pages/History"));
+const AnalysisDetail = lazy(() => import("./pages/AnalysisDetail"));
+
+function PageLoader() {
+  return (
+    <GradientBackground>
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="text-center">
+          <div className="mx-auto mb-5 h-12 w-12 rounded-full border-4 border-indigo-500/20 border-t-indigo-400 animate-spin"></div>
+          <p className="text-sm text-gray-400">Loading page...</p>
+        </div>
+      </div>
+    </GradientBackground>
+  );
+}
 
 function App() {
   return (
@@ -32,13 +48,15 @@ function App() {
         }}
       />
 
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/upload" element={<Upload />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/history" element={<History />} />
-        <Route path="/analysis/:id" element={<AnalysisDetail />} />
-      </Routes>
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/upload" element={<Upload />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/history" element={<History />} />
+          <Route path="/analysis/:id" element={<AnalysisDetail />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

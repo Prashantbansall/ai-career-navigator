@@ -1,13 +1,10 @@
-export default function Badge({ children, variant = "default" }) {
-  const styles = {
-    default: "bg-indigo-500/20 text-indigo-300",
-    danger: "bg-red-500/20 text-red-300",
-    success: "bg-green-500/20 text-green-300",
-  };
-
+export default function Card({ children, className = "" }) {
   return (
-    <span className={`px-3 py-1 rounded-full text-sm ${styles[variant]}`}>
+    <div
+      className={`bg-white/5 backdrop-blur-lg border border-white/10 
+        p-5 md:p-6 rounded-2xl shadow-md hover:shadow-xl transition ${className}`}
+    >
       {children}
-    </span>
+    </div>
   );
 }

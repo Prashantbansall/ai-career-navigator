@@ -3,11 +3,21 @@ import { asyncHandler } from "../middleware/asyncHandler.js";
 import AppError from "../utils/AppError.js";
 import { roleSkills } from "../utils/roleSkills.js";
 
-const escapeRegex = (value) => {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const escapeRegex = (value = "") => {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 };
 
 const validRoles = ["All", ...Object.keys(roleSkills)];
+
+const parsePositiveNumber = (value, fallback) => {
+  const number = Number(value);
+
+  if (!Number.isFinite(number) || number < 1) {
+    return fallback;
+  }
+
+  return number;
+};
 
 export const getAllAnalyses = asyncHandler(async (req, res) => {
   const { search = "", role = "All", page = 1, limit = 6 } = req.query;
@@ -19,18 +29,20 @@ export const getAllAnalyses = asyncHandler(async (req, res) => {
     );
   }
 
-  const pageNumber = Math.max(Number(page) || 1, 1);
-  const limitNumber = Math.min(Math.max(Number(limit) || 6, 1), 20);
+  const pageNumber = parsePositiveNumber(page, 1);
+  const limitNumber = Math.min(parsePositiveNumber(limit, 6), 20);
   const skip = (pageNumber - 1) * limitNumber;
 
   const query = {};
 
-  if (role && role !== "All") {
+  if (role !== "All") {
     query.targetRole = role;
   }
 
-  if (search.trim()) {
-    const safeSearch = escapeRegex(search.trim());
+  const normalizedSearch = String(search).trim();
+
+  if (normalizedSearch) {
+    const safeSearch = escapeRegex(normalizedSearch);
     const searchRegex = new RegExp(safeSearch, "i");
 
     query.$or = [
@@ -61,6 +73,7 @@ export const getAllAnalyses = asyncHandler(async (req, res) => {
       count: analyses.length,
       total,
       page: pageNumber,
+      limit: limitNumber,
       pages,
       hasMore: pageNumber < pages,
       analyses,

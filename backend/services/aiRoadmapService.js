@@ -1,7 +1,28 @@
+/**
+ * aiRoadmapService.js
+ *
+ * Handles AI-powered roadmap generation using multiple providers.
+ *
+ * Current strategy:
+ * 1. Build a strict JSON prompt from resume analysis data
+ * 2. Try the primary AI provider first
+ * 3. If the primary provider fails, try the fallback provider
+ * 4. Parse and validate the AI response before returning it
+ *
+ * This service is intentionally isolated so the rest of the backend can keep
+ * working even if AI providers change later.
+ */
+
 import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
 import { aiConfig } from "../config/aiConfig.js";
 
+/**
+ * Creates a Gemini client using the API key from environment variables.
+ *
+ * Keeping client creation in a function allows tests and runtime checks to fail
+ * clearly when the API key is missing.
+ */
 const getGeminiClient = () => {
   if (!process.env.GEMINI_API_KEY) {
     throw new Error("GEMINI_API_KEY is missing");
@@ -12,6 +33,11 @@ const getGeminiClient = () => {
   });
 };
 
+/**
+ * Creates an OpenAI client using the API key from environment variables.
+ *
+ * OpenAI can be used either as the primary provider or as a fallback provider.
+ */
 const getOpenAIClient = () => {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error("OPENAI_API_KEY is missing");
@@ -22,6 +48,13 @@ const getOpenAIClient = () => {
   });
 };
 
+/**
+ * Safely extracts JSON from AI-generated text.
+ *
+ * AI models sometimes return JSON inside markdown code fences, or include small
+ * extra text around the JSON. This helper strips code fences and extracts the
+ * first valid JSON object block before parsing.
+ */
 const extractJsonFromText = (text) => {
   if (!text) {
     throw new Error("Empty response from AI model");
@@ -49,6 +82,12 @@ const extractJsonFromText = (text) => {
   }
 };
 
+/**
+ * Normalizes the AI result into the exact structure expected by the frontend.
+ *
+ * This prevents missing or malformed AI fields from breaking the dashboard.
+ * If the AI omits a field, we provide a sensible default.
+ */
 const validateAIResult = (result) => {
   return {
     aiSummary:
@@ -79,6 +118,12 @@ const validateAIResult = (result) => {
   };
 };
 
+/**
+ * Builds the AI prompt for roadmap generation.
+ *
+ * The prompt strongly asks for valid JSON only because the backend parses the
+ * model output and sends structured data to the React dashboard.
+ */
 const buildRoadmapPrompt = ({
   targetRole,
   roleTitle,
@@ -150,6 +195,11 @@ Rules:
 `;
 };
 
+/**
+ * Generates roadmap text using Gemini.
+ *
+ * The response is returned as raw text first, then parsed by extractJsonFromText.
+ */
 const generateWithGemini = async (prompt) => {
   const ai = getGeminiClient();
 
@@ -161,6 +211,11 @@ const generateWithGemini = async (prompt) => {
   return response.text;
 };
 
+/**
+ * Generates roadmap text using OpenAI.
+ *
+ * This can be configured as primary provider or fallback provider.
+ */
 const generateWithOpenAI = async (prompt) => {
   const client = getOpenAIClient();
 
@@ -172,6 +227,12 @@ const generateWithOpenAI = async (prompt) => {
   return response.output_text;
 };
 
+/**
+ * Routes generation to the selected provider.
+ *
+ * Adding another provider later only requires adding another branch here and
+ * updating aiConfig.
+ */
 const generateWithProvider = async (provider, prompt) => {
   if (provider === "gemini") {
     return generateWithGemini(prompt);
@@ -184,6 +245,13 @@ const generateWithProvider = async (provider, prompt) => {
   throw new Error(`Unsupported AI provider: ${provider}`);
 };
 
+/**
+ * Generates an AI roadmap for the missing skills in the selected target role.
+ *
+ * If there are no missing skills, this returns a positive summary without
+ * calling an external AI provider. Otherwise, it tries configured providers in
+ * order and returns the first successful validated response.
+ */
 export const generateAIRoadmap = async ({
   targetRole,
   roleTitle,
@@ -219,6 +287,9 @@ export const generateAIRoadmap = async ({
     jobReadiness,
   });
 
+  // Multi-provider fallback:
+  // Try primary provider first, then fallback provider if configured.
+  // This improves reliability during demos and production usage.
   const providersToTry = [aiConfig.provider, aiConfig.fallbackProvider].filter(
     Boolean,
   );

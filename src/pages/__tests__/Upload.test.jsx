@@ -74,4 +74,28 @@ describe("Upload Page", () => {
       screen.queryByRole("button", { name: /Analyze Resume/i }),
     ).not.toBeInTheDocument();
   });
+
+  it("shows fallback roles when backend roles API fails", async () => {
+    const { getRolesAPI } = await import("../../services/api");
+
+    getRolesAPI.mockRejectedValueOnce(new Error("Backend down"));
+
+    render(
+      <BrowserRouter>
+        <Upload />
+      </BrowserRouter>,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Using default roles for now/i),
+      ).toBeInTheDocument();
+    });
+
+    expect(
+      screen.getByRole("option", {
+        name: /SDE - Software Development Engineer/i,
+      }),
+    ).toBeInTheDocument();
+  });
 });

@@ -13,6 +13,7 @@ export default function ResumeUpload() {
 
   const [roles, setRoles] = useState([]);
   const [rolesLoading, setRolesLoading] = useState(false);
+  const [rolesFallback, setRolesFallback] = useState(false);
 
   const navigate = useNavigate();
 
@@ -20,6 +21,7 @@ export default function ResumeUpload() {
     const fetchRoles = async () => {
       try {
         setRolesLoading(true);
+        setRolesFallback(false);
 
         const data = await getRolesAPI();
 
@@ -27,7 +29,8 @@ export default function ResumeUpload() {
       } catch (error) {
         console.error("Failed to load roles:", error.message);
 
-        // Fallback roles if backend is not running
+        setRolesFallback(true);
+
         setRoles([
           { value: "SDE", label: "Software Development Engineer" },
           { value: "AI/ML", label: "AI/ML Engineer" },
@@ -37,7 +40,7 @@ export default function ResumeUpload() {
           { value: "Backend", label: "Backend Developer" },
         ]);
 
-        toast.error("Could not load roles from backend. Using default roles.");
+        toast.error("Backend roles API unavailable. Using default roles.");
       } finally {
         setRolesLoading(false);
       }
@@ -115,6 +118,7 @@ export default function ResumeUpload() {
 
   return (
     <div className="flex flex-col items-center w-full max-w-xl mx-auto">
+      
       {/* Target Role */}
       <div className="w-full mb-6">
         <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -152,9 +156,18 @@ export default function ResumeUpload() {
           )}
         </select>
 
-        <p className="text-xs text-gray-500 mt-2">
-          Roles are loaded from the backend API.
-        </p>
+        {rolesFallback ? (
+          <div className="mt-3 rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-xs text-yellow-300">
+            Could not connect to the backend roles API. Using default roles for
+            now.
+          </div>
+        ) : (
+          <p className="text-xs text-gray-500 mt-2">
+            {rolesLoading
+              ? "Loading roles from backend..."
+              : "Roles are loaded from the backend API."}
+          </p>
+        )}
       </div>
 
       {/* Upload Box */}

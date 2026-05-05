@@ -8,6 +8,7 @@ export default function GlowButton({
   disabled = false,
   className = "",
   variant = "primary",
+  ...props
 }) {
   const innerStyles = {
     primary: "bg-[#0f172a] text-white hover:bg-[#131d35]",
@@ -51,7 +52,7 @@ export default function GlowButton({
 
   if (to) {
     return (
-      <Link to={to} className="inline-block">
+      <Link to={to} className="inline-block" {...props}>
         {buttonContent}
       </Link>
     );
@@ -63,6 +64,7 @@ export default function GlowButton({
       onClick={onClick}
       disabled={disabled}
       className="inline-block"
+      {...props}
     >
       {buttonContent}
     </button>

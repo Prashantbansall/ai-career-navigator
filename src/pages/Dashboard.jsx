@@ -7,7 +7,6 @@ import AnimatedBadge from "../components/ui/AnimatedBadge";
 import GlowButton from "../components/ui/GlowButton";
 import GradientBackground from "../components/layout/GradientBackground";
 import { getReadinessStyle } from "../utils/readiness";
-import SkeletonCard from "../components/ui/SkeletonCard";
 import toast from "react-hot-toast";
 import ConfirmModal from "../components/ui/ConfirmModal";
 
@@ -32,9 +31,6 @@ import {
   History,
   Eye,
   Trash2,
-  Database,
-  ShieldCheck,
-  BarChart3,
   WandSparkles,
   TrendingUp,
 } from "lucide-react";
@@ -64,6 +60,7 @@ export default function Dashboard() {
   const [openingId, setOpeningId] = useState("");
   const [deletingId, setDeletingId] = useState("");
   const [historyError, setHistoryError] = useState("");
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
 
   const extractedSkills = analysis?.extractedSkills || [];
   const requiredSkills = analysis?.requiredSkills || [];
@@ -85,8 +82,6 @@ export default function Dashboard() {
   const promptVersion = analysis?.promptVersion || "";
 
   const readinessStyle = getReadinessStyle(jobReadiness);
-
-  const [deleteTargetId, setDeleteTargetId] = useState(null);
 
   const fadeUp = {
     hidden: { opacity: 0, y: 24 },
@@ -133,6 +128,8 @@ export default function Dashboard() {
   };
 
   const formatDate = (date) => {
+    if (!date) return "Unknown date";
+
     return new Date(date).toLocaleString("en-IN", {
       day: "2-digit",
       month: "short",
@@ -238,7 +235,7 @@ export default function Dashboard() {
               transition={{ duration: 0.45 }}
               className="inline-flex items-center gap-2 text-sm text-indigo-300 mb-2"
             >
-              <Sparkles size={16} />
+              <Sparkles size={16} aria-hidden="true" />
               AI-powered career insights
             </motion.p>
 
@@ -262,13 +259,15 @@ export default function Dashboard() {
 
           {analysis && (
             <motion.button
+              type="button"
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.45 }}
               onClick={clearAnalysis}
+              aria-label="Clear current resume analysis"
               className="inline-flex items-center gap-2 px-4 py-2 bg-red-500/20 text-red-300 hover:bg-red-500/30 rounded-xl text-sm transition w-fit"
             >
-              <RefreshCcw size={16} />
+              <RefreshCcw size={16} aria-hidden="true" />
               Clear Analysis
             </motion.button>
           )}
@@ -283,7 +282,7 @@ export default function Dashboard() {
             <Card>
               <div className="text-center py-12">
                 <div className="mx-auto w-16 h-16 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-300 mb-5">
-                  <FileText size={30} />
+                  <FileText size={30} aria-hidden="true" />
                 </div>
 
                 <h3 className="text-xl font-semibold text-indigo-400">
@@ -296,7 +295,11 @@ export default function Dashboard() {
                 </p>
 
                 <div className="mt-6">
-                  <GlowButton to="/upload" variant="solid">
+                  <GlowButton
+                    to="/upload"
+                    variant="solid"
+                    aria-label="Upload a resume for analysis"
+                  >
                     Upload Resume
                   </GlowButton>
                 </div>
@@ -319,7 +322,7 @@ export default function Dashboard() {
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <div className="flex items-center gap-2 text-indigo-300 mb-2">
-                        <Target size={18} />
+                        <Target size={18} aria-hidden="true" />
                         <h3 className="text-lg font-semibold text-indigo-400">
                           Target Role
                         </h3>
@@ -330,7 +333,7 @@ export default function Dashboard() {
                     </div>
 
                     <div className="w-12 h-12 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-300">
-                      <Target size={24} />
+                      <Target size={24} aria-hidden="true" />
                     </div>
                   </div>
                 </Card>
@@ -341,7 +344,11 @@ export default function Dashboard() {
                   <div className="w-full">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
-                        <TrendingUp size={18} className={readinessStyle.text} />
+                        <TrendingUp
+                          size={18}
+                          aria-hidden="true"
+                          className={readinessStyle.text}
+                        />
                         <h3
                           className={`text-lg font-semibold ${readinessStyle.text}`}
                         >
@@ -356,7 +363,14 @@ export default function Dashboard() {
 
                     <p className="text-3xl font-bold mt-2">{jobReadiness}%</p>
 
-                    <div className="mt-4 w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+                    <div
+                      className="mt-4 w-full bg-gray-700 rounded-full h-3 overflow-hidden"
+                      role="progressbar"
+                      aria-label="Job readiness score"
+                      aria-valuenow={jobReadiness}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                    >
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${jobReadiness}%` }}
@@ -379,7 +393,7 @@ export default function Dashboard() {
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <div className="flex items-center gap-2 text-red-300 mb-2">
-                        <AlertTriangle size={18} />
+                        <AlertTriangle size={18} aria-hidden="true" />
                         <h3 className="text-lg font-semibold text-red-400">
                           Skill Gaps
                         </h3>
@@ -395,7 +409,7 @@ export default function Dashboard() {
                     </div>
 
                     <div className="w-12 h-12 rounded-xl bg-red-500/20 border border-red-500/30 flex items-center justify-center text-red-300">
-                      <AlertTriangle size={24} />
+                      <AlertTriangle size={24} aria-hidden="true" />
                     </div>
                   </div>
                 </Card>
@@ -414,6 +428,7 @@ export default function Dashboard() {
                     <div className="flex items-center gap-2 min-w-0">
                       <Brain
                         size={20}
+                        aria-hidden="true"
                         className={
                           roadmapSource === "ai"
                             ? "text-green-300"
@@ -453,7 +468,13 @@ export default function Dashboard() {
                   )}
 
                   {aiError && (
-                    <p className="text-sm text-yellow-300 mt-2">{aiError}</p>
+                    <p
+                      role="alert"
+                      aria-live="assertive"
+                      className="text-sm text-yellow-300 mt-2"
+                    >
+                      {aiError}
+                    </p>
                   )}
                 </div>
               </Card>
@@ -469,7 +490,11 @@ export default function Dashboard() {
               <motion.div variants={fadeUp} transition={{ duration: 0.45 }}>
                 <Card>
                   <div className="flex items-center gap-2 mb-4">
-                    <FileText size={20} className="text-indigo-300" />
+                    <FileText
+                      size={20}
+                      aria-hidden="true"
+                      className="text-indigo-300"
+                    />
                     <h3 className="text-lg font-semibold text-indigo-400">
                       Extracted Skills
                     </h3>
@@ -492,7 +517,11 @@ export default function Dashboard() {
               <motion.div variants={fadeUp} transition={{ duration: 0.5 }}>
                 <Card>
                   <div className="flex items-center gap-2 mb-4">
-                    <CheckCircle2 size={20} className="text-green-300" />
+                    <CheckCircle2
+                      size={20}
+                      aria-hidden="true"
+                      className="text-green-300"
+                    />
                     <h3 className="text-lg font-semibold text-green-400">
                       Matched Skills
                     </h3>
@@ -517,7 +546,11 @@ export default function Dashboard() {
               <motion.div variants={fadeUp} transition={{ duration: 0.55 }}>
                 <Card>
                   <div className="flex items-center gap-2 mb-4">
-                    <XCircle size={20} className="text-red-300" />
+                    <XCircle
+                      size={20}
+                      aria-hidden="true"
+                      className="text-red-300"
+                    />
                     <h3 className="text-lg font-semibold text-red-400">
                       Missing Skills
                     </h3>
@@ -549,7 +582,11 @@ export default function Dashboard() {
               >
                 <Card className="mt-8 md:mt-10">
                   <div className="flex items-center gap-2 mb-3">
-                    <WandSparkles size={20} className="text-indigo-300" />
+                    <WandSparkles
+                      size={20}
+                      aria-hidden="true"
+                      className="text-indigo-300"
+                    />
                     <h3 className="text-lg font-semibold text-indigo-400">
                       AI Career Summary
                     </h3>
@@ -589,7 +626,11 @@ export default function Dashboard() {
             >
               <Card className="mt-8 md:mt-10">
                 <div className="flex items-center gap-2 mb-6">
-                  <Route size={20} className="text-green-300" />
+                  <Route
+                    size={20}
+                    aria-hidden="true"
+                    className="text-green-300"
+                  />
                   <h3 className="text-lg font-semibold text-green-400">
                     Week-by-Week Roadmap
                   </h3>
@@ -597,7 +638,10 @@ export default function Dashboard() {
 
                 {aiRoadmap.length > 0 ? (
                   <div className="relative">
-                    <div className="absolute left-4 top-2 bottom-2 w-px bg-white/10"></div>
+                    <div
+                      aria-hidden="true"
+                      className="absolute left-4 top-2 bottom-2 w-px bg-white/10"
+                    ></div>
 
                     <div className="space-y-6">
                       {aiRoadmap.map((item, i) => (
@@ -608,7 +652,10 @@ export default function Dashboard() {
                           transition={{ delay: i * 0.12 }}
                           className="relative pl-12"
                         >
-                          <div className="absolute left-0 top-1 w-8 h-8 rounded-full bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-300">
+                          <div
+                            aria-hidden="true"
+                            className="absolute left-0 top-1 w-8 h-8 rounded-full bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-300"
+                          >
                             {i + 1}
                           </div>
 
@@ -621,7 +668,7 @@ export default function Dashboard() {
                               <div className="flex flex-wrap gap-2">
                                 {item.difficulty && (
                                   <AnimatedBadge className="text-xs">
-                                    <Gauge size={13} />
+                                    <Gauge size={13} aria-hidden="true" />
                                     Difficulty: {item.difficulty}
                                   </AnimatedBadge>
                                 )}
@@ -631,7 +678,7 @@ export default function Dashboard() {
                                     variant="success"
                                     className="text-xs"
                                   >
-                                    <Clock size={13} />
+                                    <Clock size={13} aria-hidden="true" />
                                     Time: {item.timeEstimate}
                                   </AnimatedBadge>
                                 )}
@@ -691,7 +738,7 @@ export default function Dashboard() {
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
                   <div>
                     <div className="flex items-center gap-2 text-indigo-300 mb-2">
-                      <History size={20} />
+                      <History size={20} aria-hidden="true" />
                       <h3 className="text-lg font-semibold text-indigo-400">
                         Recent Analyses
                       </h3>
@@ -702,19 +749,31 @@ export default function Dashboard() {
                     </p>
                   </div>
 
-                  <GlowButton to="/history" variant="primary">
+                  <GlowButton
+                    to="/history"
+                    variant="primary"
+                    aria-label="View all analysis history"
+                  >
                     View All History
                   </GlowButton>
                 </div>
 
                 {historyError && (
-                  <div className="mb-5 rounded-xl bg-yellow-500/10 border border-yellow-500/20 p-4 text-yellow-300 text-sm">
+                  <div
+                    role="alert"
+                    aria-live="assertive"
+                    className="mb-5 rounded-xl bg-yellow-500/10 border border-yellow-500/20 p-4 text-yellow-300 text-sm"
+                  >
                     {historyError}
                   </div>
                 )}
 
                 {historyLoading && (
-                  <div className="text-center py-8">
+                  <div
+                    className="text-center py-8"
+                    role="status"
+                    aria-live="polite"
+                  >
                     <div className="mx-auto mb-4 h-10 w-10 rounded-full border-4 border-indigo-500/20 border-t-indigo-400 animate-spin"></div>
                     <p className="text-sm text-gray-400">
                       Loading recent analyses...
@@ -777,7 +836,7 @@ export default function Dashboard() {
                           </AnimatedBadge>
 
                           <AnimatedBadge className="text-xs">
-                            <Clock size={13} />
+                            <Clock size={13} aria-hidden="true" />
                             {formatDate(item.createdAt)}
                           </AnimatedBadge>
                         </div>
@@ -785,28 +844,39 @@ export default function Dashboard() {
                         <div className="flex gap-2 mt-4">
                           <Link
                             to={`/analysis/${item._id}`}
+                            aria-label={`View details for ${
+                              item.resumeName || item.targetRole
+                            } analysis`}
                             className="inline-flex items-center justify-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm text-gray-200 transition"
                           >
                             Detail
                           </Link>
 
                           <button
+                            type="button"
                             onClick={() => openHistoryAnalysis(item._id)}
                             disabled={openingId === item._id}
+                            aria-label={`Open ${
+                              item.resumeName || item.targetRole
+                            } analysis`}
                             className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed rounded-lg text-sm text-white transition"
                           >
-                            <Eye size={15} />
+                            <Eye size={15} aria-hidden="true" />
                             {openingId === item._id ? "Opening..." : "Open"}
                           </button>
 
                           <button
+                            type="button"
                             onClick={() =>
                               requestDeleteHistoryAnalysis(item._id)
                             }
                             disabled={deletingId === item._id}
+                            aria-label={`Delete ${
+                              item.resumeName || item.targetRole
+                            } analysis`}
                             className="inline-flex items-center justify-center gap-2 px-3 py-2 bg-red-500/20 text-red-300 hover:bg-red-500/30 disabled:opacity-60 disabled:cursor-not-allowed rounded-lg text-sm transition"
                           >
-                            <Trash2 size={15} />
+                            <Trash2 size={15} aria-hidden="true" />
                             {deletingId === item._id ? "..." : "Delete"}
                           </button>
                         </div>

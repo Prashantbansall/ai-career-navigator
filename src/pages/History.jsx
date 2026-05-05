@@ -274,7 +274,7 @@ export default function History() {
               transition={{ duration: 0.45 }}
               className="inline-flex items-center gap-2 text-sm text-indigo-300 mb-2"
             >
-              <Database size={16} />
+              <Database size={16} aria-hidden="true" />
               Saved resume analysis history
             </motion.p>
 
@@ -297,6 +297,7 @@ export default function History() {
           </motion.div>
 
           <motion.button
+            type="button"
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45 }}
@@ -309,9 +310,14 @@ export default function History() {
               })
             }
             disabled={loading}
+            aria-label="Refresh analysis history"
             className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm transition w-fit disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <RefreshCcw size={16} className={loading ? "animate-spin" : ""} />
+            <RefreshCcw
+              size={16}
+              aria-hidden="true"
+              className={loading ? "animate-spin" : ""}
+            />
             {loading ? "Refreshing..." : "Refresh"}
           </motion.button>
         </div>
@@ -324,7 +330,7 @@ export default function History() {
         >
           <Card className="mb-8">
             <div className="flex items-center gap-2 text-indigo-300 mb-5">
-              <Search size={18} />
+              <Search size={18} aria-hidden="true" />
               <h3 className="text-lg font-semibold text-indigo-400">
                 Search & Filter
               </h3>
@@ -333,25 +339,33 @@ export default function History() {
             <form
               onSubmit={handleSearchSubmit}
               className="flex flex-col md:flex-row md:items-end gap-4"
+              aria-label="Search and filter analysis history"
             >
               {/* Search */}
               <div className="flex-1">
-                <label className="flex items-center gap-2 text-sm text-gray-300 mb-2">
-                  <Search size={15} />
+                <label
+                  htmlFor="history-search"
+                  className="flex items-center gap-2 text-sm text-gray-300 mb-2"
+                >
+                  <Search size={15} aria-hidden="true" />
                   Search History
                 </label>
 
                 <div className="relative">
                   <Search
                     size={18}
+                    aria-hidden="true"
                     className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500"
                   />
 
                   <input
+                    id="history-search"
+                    name="historySearch"
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Search by resume name, role, AI provider, or source..."
+                    aria-label="Search analysis history"
                     className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3 text-gray-200 placeholder:text-gray-500 focus:outline-none focus:border-indigo-400 transition"
                   />
                 </div>
@@ -359,14 +373,20 @@ export default function History() {
 
               {/* Role Filter */}
               <div className="w-full md:w-64">
-                <label className="flex items-center gap-2 text-sm text-gray-300 mb-2">
-                  <Filter size={15} />
+                <label
+                  htmlFor="history-role-filter"
+                  className="flex items-center gap-2 text-sm text-gray-300 mb-2"
+                >
+                  <Filter size={15} aria-hidden="true" />
                   Filter by Role
                 </label>
 
                 <select
+                  id="history-role-filter"
+                  name="historyRoleFilter"
                   value={roleFilter}
                   onChange={(e) => handleRoleChange(e.target.value)}
+                  aria-label="Filter analysis history by target role"
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-gray-200 focus:outline-none focus:border-indigo-400 transition"
                 >
                   {roles.map((role) => (
@@ -380,9 +400,10 @@ export default function History() {
               <button
                 type="submit"
                 disabled={loading}
+                aria-label="Search analysis history"
                 className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed rounded-xl text-sm text-white transition"
               >
-                <Search size={16} />
+                <Search size={16} aria-hidden="true" />
                 Search
               </button>
 
@@ -391,9 +412,10 @@ export default function History() {
                 <button
                   type="button"
                   onClick={clearFilters}
+                  aria-label="Clear history search and role filters"
                   className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-red-500/20 text-red-300 hover:bg-red-500/30 rounded-xl text-sm transition"
                 >
-                  <X size={16} />
+                  <X size={16} aria-hidden="true" />
                   Clear
                 </button>
               )}
@@ -401,9 +423,12 @@ export default function History() {
 
             {/* Result count */}
             {!loading && (
-              <div className="flex flex-wrap items-center gap-2 mt-5">
+              <div
+                className="flex flex-wrap items-center gap-2 mt-5"
+                aria-live="polite"
+              >
                 <AnimatedBadge>
-                  <ListChecks size={13} />
+                  <ListChecks size={13} aria-hidden="true" />
                   Showing {history.length} of {total}
                 </AnimatedBadge>
 
@@ -437,8 +462,12 @@ export default function History() {
             transition={{ duration: 0.45 }}
           >
             <Card className="mb-8 border-red-500/30">
-              <div className="flex items-start gap-3 text-red-300">
-                <AlertTriangle size={20} className="mt-1" />
+              <div
+                role="alert"
+                aria-live="assertive"
+                className="flex items-start gap-3 text-red-300"
+              >
+                <AlertTriangle size={20} aria-hidden="true" className="mt-1" />
                 <div>
                   <h3 className="font-semibold">Something went wrong</h3>
                   <p className="text-sm text-red-200/80 mt-1">{error}</p>
@@ -462,9 +491,9 @@ export default function History() {
               <div className="text-center py-12">
                 <div className="mx-auto w-16 h-16 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-300 mb-5">
                   {filtersActive ? (
-                    <Search size={30} />
+                    <Search size={30} aria-hidden="true" />
                   ) : (
-                    <FileText size={30} />
+                    <FileText size={30} aria-hidden="true" />
                   )}
                 </div>
 
@@ -483,14 +512,20 @@ export default function History() {
                 <div className="mt-6">
                   {filtersActive ? (
                     <button
+                      type="button"
                       onClick={clearFilters}
+                      aria-label="Clear history search and role filters"
                       className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm transition"
                     >
-                      <X size={16} />
+                      <X size={16} aria-hidden="true" />
                       Clear Filters
                     </button>
                   ) : (
-                    <GlowButton to="/upload" variant="solid">
+                    <GlowButton
+                      to="/upload"
+                      variant="solid"
+                      aria-label="Analyze a resume"
+                    >
                       Analyze Resume
                     </GlowButton>
                   )}
@@ -521,7 +556,7 @@ export default function History() {
                       <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 text-indigo-300 mb-2">
-                            <FileText size={18} />
+                            <FileText size={18} aria-hidden="true" />
                             <p className="text-sm truncate">
                               {item.resumeName || "Untitled Resume"}
                             </p>
@@ -556,7 +591,7 @@ export default function History() {
                         </AnimatedBadge>
 
                         <AnimatedBadge>
-                          <Clock size={13} />
+                          <Clock size={13} aria-hidden="true" />
                           {formatDate(item.createdAt)}
                         </AnimatedBadge>
                       </div>
@@ -565,7 +600,7 @@ export default function History() {
                       <div className="grid grid-cols-2 gap-3">
                         <div className="rounded-xl bg-white/5 border border-white/10 p-4">
                           <div className="flex items-center gap-2 text-green-300 mb-1">
-                            <BarChart3 size={16} />
+                            <BarChart3 size={16} aria-hidden="true" />
                             <p className="text-sm">Readiness</p>
                           </div>
                           <p className="text-2xl font-bold">
@@ -575,7 +610,7 @@ export default function History() {
 
                         <div className="rounded-xl bg-white/5 border border-white/10 p-4">
                           <div className="flex items-center gap-2 text-indigo-300 mb-1">
-                            <Brain size={16} />
+                            <Brain size={16} aria-hidden="true" />
                             <p className="text-sm">AI Provider</p>
                           </div>
                           <p className="text-lg font-semibold capitalize">
@@ -589,9 +624,9 @@ export default function History() {
                         <div className="flex items-start gap-3">
                           <div className="w-10 h-10 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-300 shrink-0">
                             {item.roadmapSource === "ai" ? (
-                              <Sparkles size={18} />
+                              <Sparkles size={18} aria-hidden="true" />
                             ) : (
-                              <ShieldCheck size={18} />
+                              <ShieldCheck size={18} aria-hidden="true" />
                             )}
                           </div>
 
@@ -617,29 +652,40 @@ export default function History() {
                       <div className="flex flex-col sm:flex-row gap-3">
                         <Link
                           to={`/analysis/${item._id}`}
+                          aria-label={`View details for ${
+                            item.resumeName || item.targetRole
+                          } analysis`}
                           className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-gray-200 transition flex-1"
                         >
-                          <Eye size={16} />
+                          <Eye size={16} aria-hidden="true" />
                           View Detail
                         </Link>
 
                         <button
+                          type="button"
                           onClick={() => openAnalysis(item._id)}
                           disabled={openingId === item._id}
+                          aria-label={`Open dashboard for ${
+                            item.resumeName || item.targetRole
+                          } analysis`}
                           className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed rounded-xl text-white transition flex-1"
                         >
-                          <Eye size={16} />
+                          <Eye size={16} aria-hidden="true" />
                           {openingId === item._id
                             ? "Opening..."
                             : "Open Dashboard"}
                         </button>
 
                         <button
+                          type="button"
                           onClick={() => requestDeleteAnalysis(item._id)}
                           disabled={deletingId === item._id}
+                          aria-label={`Delete ${
+                            item.resumeName || item.targetRole
+                          } analysis`}
                           className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-red-500/20 text-red-300 hover:bg-red-500/30 disabled:opacity-60 disabled:cursor-not-allowed rounded-xl transition"
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={16} aria-hidden="true" />
                           {deletingId === item._id ? "Deleting..." : "Delete"}
                         </button>
                       </div>
@@ -653,18 +699,24 @@ export default function History() {
             {hasMore && (
               <div className="mt-8 flex justify-center">
                 <button
+                  type="button"
                   onClick={loadMore}
                   disabled={loadingMore}
+                  aria-label="Load more analysis history results"
                   className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm transition disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {loadingMore ? (
                     <>
-                      <Loader2 size={16} className="animate-spin" />
+                      <Loader2
+                        size={16}
+                        aria-hidden="true"
+                        className="animate-spin"
+                      />
                       Loading More...
                     </>
                   ) : (
                     <>
-                      <ListChecks size={16} />
+                      <ListChecks size={16} aria-hidden="true" />
                       Load More
                     </>
                   )}

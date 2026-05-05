@@ -107,7 +107,7 @@ describe("Dashboard Page", () => {
     );
 
     expect(
-      screen.getByRole("button", { name: /Clear Analysis/i }),
+      screen.getByRole("button", { name: /Clear current resume analysis/i }),
     ).toBeInTheDocument();
   });
 });

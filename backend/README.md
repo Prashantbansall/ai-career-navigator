@@ -254,7 +254,7 @@ backend/app.js
 backend/server.js
 
 backend/config/db.js
-backend/config/aiConfig.js
+backend/config/aiConfig.js              # AI provider, model, fallback, and prompt configuration
 
 backend/controllers/resumeController.js
 backend/controllers/analysisController.js
@@ -265,10 +265,10 @@ backend/routes/analysisRoutes.js
 backend/routes/roleRoutes.js
 backend/routes/healthRoutes.js
 
-backend/services/resumeService.js
-backend/services/aiService.js
-backend/services/aiRoadmapService.js
-backend/services/pdfReportService.js
+backend/services/resumeService.js       # Resume text extraction and processing logic
+backend/services/roadmapService.js      # Rule-based roadmap generation logic
+backend/services/aiRoadmapService.js    # AI-powered roadmap and recommendation generation
+backend/services/pdfReportService.js    # PDF report generation logic
 
 backend/middleware/asyncHandler.js
 backend/middleware/errorMiddleware.js

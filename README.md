@@ -337,16 +337,22 @@ src/pages/__tests__/Dashboard.test.jsx
 ### Backend
 
 ```text
-backend/controllers/analysisController.js
-backend/controllers/resumeController.js
-backend/routes/analysisRoutes.js
-backend/routes/resumeRoutes.js
-backend/routes/roleRoutes.js
-backend/services/pdfReportService.js
-backend/services/resumeService.js
-backend/services/aiService.js
-backend/services/aiRoadmapService.js
-backend/tests/analysisPdf.test.js
+backend/
+├── controllers/
+│   ├── analysisController.js     # Handles analysis history, detail, delete, and PDF export
+│   └── resumeController.js       # Handles resume upload, extraction, and analysis
+├── routes/
+│   ├── analysisRoutes.js         # Analysis history and PDF export routes
+│   ├── resumeRoutes.js           # Resume upload, extract, and analyze routes
+│   └── roleRoutes.js             # Target role list API routes
+├── services/
+│   ├── resumeService.js          # Extracts and processes resume text
+│   ├── aiRoadmapService.js       # Generates skill gap analysis and roadmap content
+│   ├── pdfReportService.js       # Generates professional PDF roadmap reports
+|── config/
+|   └── aiConfig.js               # AI provider, model, fallback, and prompt configuration
+└── tests/
+    └── analysisPdf.test.js       # Tests backend PDF export functionality
 ```
 
 ## Current Project Status

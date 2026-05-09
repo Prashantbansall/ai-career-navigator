@@ -1,3 +1,11 @@
 node_modules
 uploads
 .env
+
+# test coverage
+coverage/
+backend/coverage/
+
+# vitest cache
+.vitest/
+backend/.vitest/

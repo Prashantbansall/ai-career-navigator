@@ -30,3 +30,11 @@ temp/
 # OS files
 .DS_Store
 Thumbs.db
+
+# test coverage
+coverage/
+backend/coverage/
+
+# vitest cache
+.vitest/
+backend/.vitest/

@@ -205,9 +205,12 @@ describe("Dashboard Page", () => {
 
     await waitFor(() => {
       expect(exportRoadmapPDF).toHaveBeenCalledTimes(1);
+
       expect(exportRoadmapPDF).toHaveBeenCalledWith(
         "roadmap-export",
-        "career-roadmap.pdf",
+        expect.stringMatching(
+          /^ai-career-navigator-prashantresume-sde-\d{4}-\d{2}-\d{2}-\d{4}\.pdf$/,
+        ),
       );
     });
 

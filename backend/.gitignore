@@ -4,8 +4,6 @@ uploads
 
 # test coverage
 coverage/
-backend/coverage/
 
 # vitest cache
 .vitest/
-backend/.vitest/

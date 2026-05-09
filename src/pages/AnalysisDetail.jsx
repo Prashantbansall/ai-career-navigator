@@ -7,6 +7,7 @@ import Card from "../components/ui/Card";
 import AnimatedBadge from "../components/ui/AnimatedBadge";
 import GlowButton from "../components/ui/GlowButton";
 import ConfirmModal from "../components/ui/ConfirmModal";
+import EmptyState from "../components/ui/EmptyState";
 import SkeletonCard from "../components/ui/SkeletonCard";
 import { getAnalysisByIdAPI, deleteAnalysisAPI } from "../services/api";
 import { getReadinessStyle } from "../utils/readiness";
@@ -251,25 +252,17 @@ export default function AnalysisDetail() {
 
         {/* ERROR */}
         {!loading && error && (
-          <Card>
-            <div className="text-center py-12">
-              <div className="mx-auto w-16 h-16 rounded-2xl bg-red-500/20 border border-red-500/30 flex items-center justify-center text-red-300 mb-5">
-                <AlertTriangle size={30} />
-              </div>
-
-              <h3 className="text-xl font-semibold text-red-300">
-                Failed to Load Analysis
-              </h3>
-
-              <p className="text-sm md:text-base text-gray-400 mt-2">{error}</p>
-
-              <div className="mt-6">
-                <GlowButton to="/history" variant="primary">
-                  Back to History
-                </GlowButton>
-              </div>
-            </div>
-          </Card>
+          <EmptyState
+            icon={AlertTriangle}
+            title="Failed to Load Analysis"
+            description={error}
+            className="border-red-500/30"
+            action={
+              <GlowButton to="/history" variant="primary">
+                Back to History
+              </GlowButton>
+            }
+          />
         )}
 
         {/* CONTENT */}

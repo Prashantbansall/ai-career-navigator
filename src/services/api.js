@@ -2,7 +2,7 @@ const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 
 const parseResponse = async (res) => {
-  let data = null;
+  let data;
 
   try {
     data = await res.json();
@@ -102,15 +102,14 @@ export const deleteAnalysisAPI = async (id) => {
 };
 
 export const getRolesAPI = async () => {
-  const res = await fetch(`${API_BASE_URL}/roles`);
+  try {
+    const res = await fetch(`${API_BASE_URL}/roles`);
+    const data = await parseResponse(res);
 
-  const data = await res.json();
-
-  if (!res.ok) {
-    throw new Error(data.error || "Failed to fetch roles.");
+    return data?.data?.roles || [];
+  } catch (error) {
+    handleNetworkError(error);
   }
-
-  return data.data.roles;
 };
 
 // Downloads a backend-generated PDF report for a saved analysis.

@@ -162,6 +162,10 @@ export const exportAnalysisPdf = asyncHandler(async (req, res) => {
 
   const pdfBuffer = await generateAnalysisPdfBuffer(analysis);
 
+  if (!pdfBuffer || !pdfBuffer.length) {
+    throw new AppError("PDF generation failed. Please try again.", 500);
+  }
+
   const createSafeFilePart = (value = "") => {
     return String(value)
       .replace(/\.[^/.]+$/, "")

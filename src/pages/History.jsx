@@ -8,6 +8,7 @@ import AnimatedBadge from "../components/ui/AnimatedBadge";
 import toast from "react-hot-toast";
 import SkeletonCard from "../components/ui/SkeletonCard";
 import ConfirmModal from "../components/ui/ConfirmModal";
+import EmptyState from "../components/ui/EmptyState";
 
 import {
   getAnalysisHistoryAPI,
@@ -487,51 +488,36 @@ export default function History() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45 }}
           >
-            <Card>
-              <div className="text-center py-12">
-                <div className="mx-auto w-16 h-16 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-300 mb-5">
-                  {filtersActive ? (
-                    <Search size={30} aria-hidden="true" />
-                  ) : (
-                    <FileText size={30} aria-hidden="true" />
-                  )}
-                </div>
-
-                <h3 className="text-xl font-semibold text-indigo-400">
-                  {filtersActive
-                    ? "No Matching Results"
-                    : "No Analysis History Yet"}
-                </h3>
-
-                <p className="text-sm md:text-base text-gray-400 mt-2 max-w-xl mx-auto">
-                  {filtersActive
-                    ? "Try changing your search keyword or role filter."
-                    : "Analyze your resume first. Your saved results will appear here automatically."}
-                </p>
-
-                <div className="mt-6">
-                  {filtersActive ? (
-                    <button
-                      type="button"
-                      onClick={clearFilters}
-                      aria-label="Clear history search and role filters"
-                      className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm transition"
-                    >
-                      <X size={16} aria-hidden="true" />
-                      Clear Filters
-                    </button>
-                  ) : (
-                    <GlowButton
-                      to="/upload"
-                      variant="solid"
-                      aria-label="Analyze a resume"
-                    >
-                      Analyze Resume
-                    </GlowButton>
-                  )}
-                </div>
-              </div>
-            </Card>
+            <EmptyState
+              icon={filtersActive ? Search : FileText}
+              title={filtersActive ? "No Matching Results" : "No Analysis History Yet"}
+              description={
+                filtersActive
+                  ? "Try changing your search keyword or role filter."
+                  : "Analyze your resume first. Your saved results will appear here automatically."
+              }
+              action={
+                filtersActive ? (
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    aria-label="Clear history search and role filters"
+                    className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm transition"
+                  >
+                    <X size={16} aria-hidden="true" />
+                    Clear Filters
+                  </button>
+                ) : (
+                  <GlowButton
+                    to="/upload"
+                    variant="solid"
+                    aria-label="Analyze a resume"
+                  >
+                    Analyze Resume
+                  </GlowButton>
+                )
+              }
+            />
           </motion.div>
         )}
 

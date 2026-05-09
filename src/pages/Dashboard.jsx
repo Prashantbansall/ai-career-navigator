@@ -9,6 +9,7 @@ import GradientBackground from "../components/layout/GradientBackground";
 import { getReadinessStyle } from "../utils/readiness";
 import toast from "react-hot-toast";
 import ConfirmModal from "../components/ui/ConfirmModal";
+import EmptyState from "../components/ui/EmptyState";
 import RoadmapReport from "../components/dashboard/RoadmapReport";
 import { exportRoadmapPDF } from "../utils/exportPdf";
 
@@ -365,32 +366,20 @@ export default function Dashboard() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55 }}
           >
-            <Card>
-              <div className="text-center py-12">
-                <div className="mx-auto w-16 h-16 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-300 mb-5">
-                  <FileText size={30} aria-hidden="true" />
-                </div>
-
-                <h3 className="text-xl font-semibold text-indigo-400">
-                  No Resume Analysis Found
-                </h3>
-
-                <p className="text-sm md:text-base text-gray-400 mt-2 max-w-xl mx-auto">
-                  Please upload and analyze your resume first to view your
-                  career insights, skill gaps, readiness score, and AI roadmap.
-                </p>
-
-                <div className="mt-6">
-                  <GlowButton
-                    to="/upload"
-                    variant="solid"
-                    aria-label="Upload a resume for analysis"
-                  >
-                    Upload Resume
-                  </GlowButton>
-                </div>
-              </div>
-            </Card>
+            <EmptyState
+              icon={FileText}
+              title="No Resume Analysis Found"
+              description="Please upload and analyze your resume first to view your career insights, skill gaps, readiness score, and AI roadmap."
+              action={
+                <GlowButton
+                  to="/upload"
+                  variant="solid"
+                  aria-label="Upload a resume for analysis"
+                >
+                  Upload Resume
+                </GlowButton>
+              }
+            />
           </motion.div>
         )}
 
@@ -868,11 +857,13 @@ export default function Dashboard() {
                 )}
 
                 {!historyLoading && recentHistory.length === 0 && (
-                  <div className="rounded-xl bg-white/5 border border-white/10 p-5 text-center">
-                    <p className="text-sm text-gray-400">
-                      No previous analyses found yet.
-                    </p>
-                  </div>
+                  <EmptyState
+                    icon={Clock}
+                    title="No previous analyses found yet."
+                    description="Your latest resume analyses will appear here after you upload and analyze a resume."
+                    compact
+                    className="bg-white/5"
+                  />
                 )}
 
                 {!historyLoading && recentHistory.length > 0 && (

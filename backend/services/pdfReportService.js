@@ -284,17 +284,17 @@ const buildReportHtml = (analysis) => {
         <div class="grid">
           <div>
             <div class="label">Resume Name</div>
-            <div class="value">${escapeHtml(analysis.resumeName)}</div>
+            <div class="value">${escapeHtml(analysis.resumeName || "Untitled Resume")}</div>
           </div>
 
           <div>
             <div class="label">Target Role</div>
-            <div class="value">${escapeHtml(analysis.targetRole)}</div>
+            <div class="value">${escapeHtml(analysis.targetRole || "Not selected")}</div>
           </div>
 
           <div>
             <div class="label">Role Title</div>
-            <div class="value">${escapeHtml(analysis.roleTitle)}</div>
+            <div class="value">${escapeHtml(analysis.roleTitle || "Target role analysis")}</div>
           </div>
 
           <div>
@@ -306,7 +306,7 @@ const buildReportHtml = (analysis) => {
         <h2>Job Readiness Score</h2>
         <div class="score-card">
           <div class="score">${analysis.jobReadiness || 0}%</div>
-          <p>${escapeHtml(analysis.readinessReason)}</p>
+          <p>${escapeHtml(analysis.readinessReason || "No readiness reason available.")}</p>
         </div>
 
         <h2>Extracted Skills</h2>

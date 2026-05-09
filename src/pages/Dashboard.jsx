@@ -122,6 +122,32 @@ export default function Dashboard() {
     fetchRecentHistory();
   }, []);
 
+  const createPdfFileName = () => {
+    const createSafeFilePart = (value = "") => {
+      return String(value)
+        .replace(/\.[^/.]+$/, "")
+        .replace(/[^a-z0-9]/gi, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "")
+        .toLowerCase();
+    };
+
+    const now = new Date();
+
+    const date = now.toISOString().slice(0, 10);
+    const time = now.toTimeString().slice(0, 5).replace(":", "");
+
+    const resumeName = createSafeFilePart(
+      analysis?.resumeName || "resume-report",
+    );
+
+    const targetRole = createSafeFilePart(
+      analysis?.targetRole || "career-roadmap",
+    );
+
+    return `ai-career-navigator-${resumeName}-${targetRole}-${date}-${time}.pdf`;
+  };
+
   const handleExportPDF = async () => {
     if (exportingPDF) return;
 
@@ -143,7 +169,7 @@ export default function Dashboard() {
         }
       }
 
-      await exportRoadmapPDF("roadmap-export", "career-roadmap.pdf");
+      await exportRoadmapPDF("roadmap-export", createPdfFileName());
       toast.success("Roadmap PDF exported successfully");
     } catch (error) {
       console.error("Failed to export roadmap PDF:", error.message);

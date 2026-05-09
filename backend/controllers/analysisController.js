@@ -162,12 +162,33 @@ export const exportAnalysisPdf = asyncHandler(async (req, res) => {
 
   const pdfBuffer = await generateAnalysisPdfBuffer(analysis);
 
-  const safeResumeName = String(analysis.resumeName || "career-roadmap")
-    .replace(/[^a-z0-9]/gi, "-")
-    .replace(/-+/g, "-")
-    .toLowerCase();
+  const createSafeFilePart = (value = "") => {
+    return String(value)
+      .replace(/\.[^/.]+$/, "")
+      .replace(/[^a-z0-9]/gi, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "")
+      .toLowerCase();
+  };
 
-  const fileName = `${safeResumeName}-career-roadmap.pdf`;
+  const createTimestamp = () => {
+    const now = new Date();
+
+    const date = now.toISOString().slice(0, 10);
+    const time = now.toTimeString().slice(0, 5).replace(":", "");
+
+    return `${date}-${time}`;
+  };
+
+  const safeResumeName = createSafeFilePart(
+    analysis.resumeName || "resume-report",
+  );
+
+  const safeTargetRole = createSafeFilePart(
+    analysis.targetRole || "career-roadmap",
+  );
+
+  const fileName = `ai-career-navigator-${safeResumeName}-${safeTargetRole}-${createTimestamp()}.pdf`;
 
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);

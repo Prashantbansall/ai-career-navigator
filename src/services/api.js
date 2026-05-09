@@ -138,7 +138,7 @@ export const exportAnalysisPdfAPI = async (analysisId) => {
     const blob = await res.blob();
 
     const contentDisposition = res.headers.get("Content-Disposition");
-    let fileName = "career-roadmap.pdf";
+    let fileName = "ai-career-navigator-career-roadmap.pdf";
 
     if (contentDisposition) {
       const match = contentDisposition.match(/filename="?([^"]+)"?/);

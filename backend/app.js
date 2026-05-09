@@ -22,6 +22,7 @@ app.use(
     origin: allowedOrigins,
     methods: ["GET", "POST", "DELETE"],
     credentials: true,
+    exposedHeaders: ["Content-Disposition"],
   }),
 );
 

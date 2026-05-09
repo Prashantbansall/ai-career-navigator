@@ -1,3 +1,16 @@
+/**
+ * skillExtractor.js
+ *
+ * Contains a simple dictionary-based skill extraction utility.
+ *
+ * The extractor scans resume text for known skill aliases and returns a clean,
+ * unique list of normalized skill names. For example, "reactjs" and "react.js"
+ * are both normalized to "React".
+ *
+ * This is intentionally lightweight and deterministic so the app can still
+ * extract skills even before AI analysis runs.
+ */
+
 const skillsDictionary = [
   {
     name: "Java",
@@ -155,21 +168,38 @@ const skillsDictionary = [
   },
 ];
 
+/**
+ * Escapes special regex characters from skill aliases.
+ *
+ * Some aliases contain characters like "." or "/" such as "node.js" and
+ * "ci/cd". Escaping ensures those characters are treated as normal text
+ * instead of regex operators.
+ */
 const escapeRegex = (text) => {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 };
 
-export const extractSkills = (text) => {
+/**
+ * Extracts known skills from resume text.
+ *
+ * @param {string} text - Raw extracted resume text.
+ * @returns {string[]} A unique list of normalized detected skills.
+ */
+export const extractSkills = (text = "") => {
   const lowerText = text.toLowerCase();
   const detectedSkills = new Set();
 
   skillsDictionary.forEach((skill) => {
     const found = skill.aliases.some((alias) => {
       const safeAlias = escapeRegex(alias.toLowerCase());
+
+      // Match aliases as standalone words/phrases so short aliases like "js"
+      // do not accidentally match unrelated words.
       const regex = new RegExp(
         `(^|[^a-zA-Z0-9])${safeAlias}([^a-zA-Z0-9]|$)`,
         "i",
       );
+
       return regex.test(lowerText);
     });
 

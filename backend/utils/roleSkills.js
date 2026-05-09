@@ -1,3 +1,15 @@
+/**
+ * roleSkills.js
+ *
+ * Defines the required skills for each supported target role.
+ *
+ * These role definitions are used during resume analysis to:
+ * - compare extracted resume skills with role requirements
+ * - calculate matched and missing skills
+ * - generate readiness scores
+ * - build fallback learning roadmaps
+ */
+
 export const roleSkills = {
   SDE: {
     title: "Software Development Engineer",

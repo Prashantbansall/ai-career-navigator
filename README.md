@@ -1,18 +1,19 @@
 # AI Career Navigator
 
-AI Career Navigator is a full-stack AI resume analysis platform. Users upload a resume, select a target role, receive skill extraction, skill gap analysis, job readiness score, AI-generated recommendations, a week-by-week roadmap, saved analysis history, and downloadable PDF career reports.
+AI Career Navigator is a full-stack AI resume analysis platform. Users can upload a resume, select a target role, receive skill extraction, skill gap analysis, job readiness score, AI-generated recommendations, a week-by-week roadmap, saved analysis history, and downloadable PDF career reports.
 
 ## Features
 
 - Resume upload and PDF parsing
-- Target role matching for SDE, AI/ML, Data Science, DevOps, Frontend, and Backend
-- Skill extraction and gap analysis
-- Job readiness score
+- Target role matching for SDE, AI/ML, Data Science, DevOps, Frontend, and Backend roles
+- Skill extraction from uploaded resumes
+- Skill gap analysis based on the selected target role
+- Job readiness score with explanation
 - Gemini AI roadmap generation with OpenAI fallback
-- Rule-based fallback roadmap if AI fails
-- MongoDB analysis history
-- Search, filter, pagination/load more for history
-- Analysis detail page
+- Rule-based fallback roadmap if AI generation fails
+- MongoDB-based analysis history
+- Search, filter, pagination, and load-more support for history
+- Analysis detail page for saved reports
 - Frontend PDF roadmap export
 - Backend Puppeteer PDF report export
 - Frontend fallback PDF export for unsaved analysis
@@ -45,11 +46,11 @@ The exported report includes:
 - Prompt version
 - Generated date
 
-### PDF Export Approaches
+## PDF Export Flow
 
 The project supports two PDF export flows.
 
-#### 1. Frontend PDF Export
+### 1. Frontend PDF Export
 
 The Dashboard page can export a printable roadmap report using:
 
@@ -67,7 +68,7 @@ src/pages/Dashboard.jsx
 
 2. Backend PDF Export
 
-Saved analysis reports can also be exported from the backend using Puppeteer.
+Saved analysis reports can be exported from the backend using Puppeteer.
 
 Backend PDF route:
 
@@ -84,6 +85,19 @@ Frontend behavior:
 
 Saved analysis with MongoDB _id  -> backend Puppeteer PDF export
 Local/unsaved analysis           -> frontend html2canvas-pro fallback export
+Major Implemented Modules
+
+The project currently includes these major modules:
+
+Frontend dashboard and resume analysis UI
+Backend resume upload and analysis APIs
+AI integration for roadmap generation
+Premium UI/UX polish with responsive design
+Database-based analysis history
+Product hardening with validation, error handling, and security middleware
+Frontend roadmap PDF export
+Backend Puppeteer PDF export
+Frontend and backend test coverage for key flows
 Tech Stack
 Frontend
 React + Vite
@@ -233,79 +247,44 @@ Add production API keys in hosting provider environment settings
 Keep .env files private
 Ensure Puppeteer is supported on your backend hosting platform
 Configure backend memory/resources properly for PDF generation
-Project Status
-
-Completed phases:
-
-Phase 1: Frontend UI
-Phase 2: Backend + Resume Analysis
-Phase 3: AI Integration
-Phase 3.5: Premium UI/UX Polish
-Phase 4: Database + User History
-Phase 4.5: Product Hardening
-Phase 5: Export Roadmap as PDF
-Phase 5.5: Backend PDF Export, Tests, README Polish, and Optimization
-
-Next recommended phase:
-
-Phase 6: Community Dashboard
-Phase 5: Export Roadmap as PDF
-
-Phase 5 added frontend PDF export from the Dashboard.
-
-Completed work:
-
-Installed PDF libraries
-Created frontend PDF export utility
-Created printable RoadmapReport component
-Added hidden PDF export section in Dashboard
-Added Export PDF button
-Added loading state while generating PDF
-Fixed Tailwind CSS v4 oklch() issue using html2canvas-pro
-Improved PDF margins and page slicing
-Fixed incorrect data mapping in the exported report
-
-Important frontend files:
-
-src/utils/exportPdf.js
-src/components/dashboard/RoadmapReport.jsx
-src/pages/Dashboard.jsx
-Phase 5.5: Backend PDF Export + Polish
-
-Phase 5.5 improved the PDF export system by adding backend-generated PDF reports using Puppeteer.
-
-Completed work:
-
-Installed Puppeteer in backend
-Created backend PDF report service
-Added backend PDF export controller
-Added backend route for PDF download
-Added frontend API function for backend PDF export
-Connected Dashboard export button to backend export with frontend fallback
-Added Export PDF button to Analysis Detail page
-Added backend PDF export tests
-Added frontend Dashboard PDF export tests
-Improved README documentation
-
-Backend PDF endpoint:
-
-GET /api/analysis/:id/pdf
-
-Important backend files:
-
-backend/services/pdfReportService.js
-backend/controllers/analysisController.js
-backend/routes/analysisRoutes.js
-backend/tests/analysisPdf.test.js
-
-Important frontend files:
-
-src/services/api.js
+Important Project Files
+Frontend
 src/pages/Dashboard.jsx
 src/pages/AnalysisDetail.jsx
+src/pages/History.jsx
+src/pages/Upload.jsx
+src/services/api.js
+src/utils/exportPdf.js
+src/components/dashboard/RoadmapReport.jsx
 src/pages/__tests__/Dashboard.test.jsx
+Backend
+backend/controllers/analysisController.js
+backend/controllers/resumeController.js
+backend/routes/analysisRoutes.js
+backend/routes/resumeRoutes.js
+backend/routes/roleRoutes.js
+backend/services/pdfReportService.js
+backend/services/resumeService.js
+backend/services/aiService.js
+backend/services/aiRoadmapService.js
+backend/tests/analysisPdf.test.js
+Current Project Status
 
-Future Improvements
+AI Career Navigator currently supports the complete resume analysis flow:
+
+Resume upload
+Resume parsing
+Target role selection
+Skill extraction
+Skill gap analysis
+Job readiness scoring
+AI-generated roadmap
+Saved analysis history
+Analysis detail view
+Frontend PDF export
+Backend Puppeteer PDF export
+Test coverage for major flows
+Next Recommended Work
 Community Dashboard
 Compare user roadmap progress with other learners
 User authentication
@@ -318,3 +297,16 @@ Deployment with MongoDB Atlas
 Docker setup
 Accessibility testing with axe
 More frontend and backend test coverage
+
+Future Improvements
+Community Dashboard for learners
+User authentication and personalized dashboards
+Save multiple resumes per user
+Track roadmap progress week by week
+Show community-based learning trends
+Add admin analytics dashboard
+Add email PDF report feature
+Add multiple PDF design templates
+Improve accessibility using axe testing
+Add Docker support for easier deployment
+Deploy frontend and backend with production environment variables

@@ -1,165 +1,256 @@
-# AI Career Navigator
+## 📄 PDF Roadmap Export
 
-AI Career Navigator is a full-stack AI resume analysis platform. Users upload a resume, select a target role, receive skill extraction, skill gap analysis, job readiness score, AI-generated recommendations, a week-by-week roadmap, and saved analysis history.
+AI Career Navigator supports exporting the generated career roadmap as a clean downloadable PDF report.
 
-## Features
+The exported report includes:
 
-- Resume upload and PDF parsing
-- Target role matching for SDE, AI/ML, Data Science, DevOps, Frontend, and Backend
-- Skill extraction and gap analysis
+- Candidate resume name
+- Target role
+- Role title
 - Job readiness score
-- Gemini AI roadmap generation with OpenAI fallback
-- Rule-based fallback roadmap if AI fails
-- MongoDB analysis history
-- Search, filter, pagination/load more for history
-- Analysis detail page
-- Toast notifications and confirmation modal
-- Premium responsive UI with animations
+- Readiness reason
+- Extracted skills
+- Matched skills
+- Missing skills
+- AI career summary
+- AI recommendations
+- Week-by-week roadmap
+- Difficulty level
+- Time estimate
+- Free learning resources
+- Mini-project suggestions
+- AI provider metadata
+- Model used
+- Prompt version
+- Generated date
 
-## Tech Stack
+### PDF Export Approaches
+
+The project supports two PDF export flows:
+
+#### 1. Frontend PDF Export
+
+The Dashboard page can export the visible/hidden roadmap report using:
+
+- `jspdf`
+- `html2canvas-pro`
+
+This is useful for local analysis data and frontend fallback export.
+
+Frontend export file:
+
+```txt
+src/utils/exportPdf.js
+
+Printable report component:
+
+src/components/dashboard/RoadmapReport.jsx
+
+2. Backend PDF Export
+
+Saved analysis reports can also be exported from the backend using Puppeteer.
+
+Backend PDF route:
+
+GET /api/analysis/:id/pdf
+
+Backend PDF service:
+
+backend/services/pdfReportService.js
+
+This generates a more stable, print-friendly PDF directly from saved MongoDB analysis data.
+
+✅ Phase 5: Export Roadmap as PDF
+
+Phase 5 added frontend PDF export from the Dashboard.
+
+Completed work:
+
+Installed PDF libraries
+Created frontend PDF export utility
+Created printable RoadmapReport component
+Added hidden PDF export section in Dashboard
+Added Export PDF button
+Added loading state while generating PDF
+Fixed Tailwind CSS v4 oklch() issue using html2canvas-pro
+Improved PDF margins and page slicing
+Fixed incorrect data mapping in the exported report
+
+Important frontend files:
+
+src/utils/exportPdf.js
+src/components/dashboard/RoadmapReport.jsx
+src/pages/Dashboard.jsx
+✅ Phase 5.5: Backend PDF Export + Polish
+
+Phase 5.5 improved the PDF export system by adding backend-generated PDF reports using Puppeteer.
+
+Completed work:
+
+Installed Puppeteer in backend
+Created backend PDF report service
+Added backend PDF export controller
+Added backend route for PDF download
+Added frontend API function for backend PDF export
+Connected Dashboard export button to backend export with frontend fallback
+Added Export PDF button to Analysis Detail page
+Added backend PDF export tests
+Added frontend Dashboard PDF export tests
+
+Backend PDF endpoint:
+
+GET /api/analysis/:id/pdf
+
+Frontend behavior:
+
+Saved analysis with MongoDB _id  → backend Puppeteer PDF export
+Local/unsaved analysis           → frontend html2canvas-pro fallback export
+
+Important backend files:
+
+backend/services/pdfReportService.js
+backend/controllers/analysisController.js
+backend/routes/analysisRoutes.js
+backend/tests/analysisPdf.test.js
+
+Important frontend files:
+
+src/services/api.js
+src/pages/Dashboard.jsx
+src/pages/AnalysisDetail.jsx
+src/pages/__tests__/Dashboard.test.jsx
+
+---
+
+## ✅ Update Features Section
+
+If your README has a `Features` section, add these points:
+
+```md
+- Resume upload and analysis
+- Target role selection
+- Skill extraction
+- Skill gap analysis
+- Job readiness score
+- AI-generated career summary
+- AI-powered recommendations
+- Week-by-week personalized roadmap
+- Analysis history
+- Analysis detail page
+- Frontend PDF roadmap export
+- Backend Puppeteer PDF report export
+- Frontend fallback PDF export for unsaved analysis
+✅ Update Tech Stack Section
+
+Add PDF-related libraries:
 
 ### Frontend
 
-- React + Vite
-- Tailwind CSS
+- React
+- Vite
+- Tailwind CSS v4
 - Framer Motion
 - React Router
-- React Hot Toast
 - Lucide React
+- React Hot Toast
+- jsPDF
+- html2canvas-pro
+- Vitest
+- React Testing Library
 
 ### Backend
 
 - Node.js
-- Express
-- MongoDB + Mongoose
+- Express.js
+- MongoDB
+- Mongoose
 - Multer
-- pdf-parse
-- Gemini API
-- OpenAI API
-- Helmet
-- Express Rate Limit
+- PDF parsing tools
+- Puppeteer
+- Vitest
+- Supertest
+✅ Update API Routes Section
 
-## Local Setup
+Add this route:
 
-### 1. Clone and install frontend
+### Analysis Routes
 
-```bash
-git clone <your-repo-url>
-cd ai-career-navigator
-npm install
-```
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/analysis` | Get saved analysis history |
+| GET | `/api/analysis/:id` | Get a single saved analysis |
+| DELETE | `/api/analysis/:id` | Delete a saved analysis |
+| GET | `/api/analysis/:id/pdf` | Download backend-generated PDF report |
+✅ Update Testing Section
 
-Create a frontend environment file from the example:
+Add this:
 
-```bash
-cp .env.example .env
-```
+## 🧪 Testing
 
-Default frontend API URL:
-
-```env
-VITE_API_BASE_URL=http://localhost:5000/api
-```
-
-### 2. Install backend
+### Run frontend tests
 
 ```bash
+npm test
+
+Frontend tests cover:
+
+Home page rendering
+Upload page behavior
+History page rendering
+Dashboard rendering
+Export PDF button visibility
+Backend PDF export call
+Frontend PDF fallback export
+PDF loading state
+Run backend tests
 cd backend
-npm install
-```
+npm test
 
-Create backend environment file:
+Backend tests cover:
 
-```bash
-cp .env.example .env
-```
+Health route
+Resume upload/analyze flow
+Analysis routes
+Backend PDF export route
+Invalid analysis ID handling
+Missing analysis handling
 
-For local development, use local MongoDB:
+---
 
-```env
-MONGO_URI=mongodb://127.0.0.1:27017/ai-career-navigator
-```
+## ✅ Update Project Status Section
 
-For deployment, replace local MongoDB with a MongoDB Atlas URI.
+Add or update this:
 
-### 3. Start local MongoDB
+```md
+## 🚀 Project Status
 
-Make sure MongoDB is running locally before starting the backend.
+### Completed
 
-On Windows, you can check the MongoDB service from Services or run:
-
-```bash
-net start MongoDB
-```
-
-### 4. Start backend
-
-```bash
-cd backend
-npm run dev
-```
-
-Backend runs on:
-
-```text
-http://localhost:5000
-```
-
-Health check:
-
-```text
-http://localhost:5000/api/health
-```
-
-### 5. Start frontend
-
-```bash
-cd ..
-npm run dev
-```
-
-Frontend runs on:
-
-```text
-http://localhost:5173
-```
-
-## Environment Variables
-
-Backend variables are documented in:
-
-```text
-backend/.env.example
-```
-
-Frontend variables are documented in:
-
-```text
-.env.example
-```
-
-Never push real `.env` files to GitHub.
-
-## Deployment Notes
-
-Before deployment:
-
-- Replace local `MONGO_URI` with MongoDB Atlas URI
-- Add `CLIENT_URLS` for deployed frontend domain
-- Add production API keys in hosting provider environment settings
-- Keep `.env` files private
-
-## Project Status
-
-Completed phases:
-
-- Phase 1: Frontend UI
-- Phase 2: Backend + Resume Analysis
-- Phase 3: AI Integration
-- Phase 3.5: Premium UI/UX Polish
-- Phase 4: Database + User History
-- Phase 4.5: Product Hardening
-
-Next recommended phase:
-
+- Phase 1: Frontend UI setup
+- Phase 2: Backend API setup
+- Phase 3: Resume upload and extraction
+- Phase 4: AI-powered analysis and roadmap generation
 - Phase 5: Export roadmap as PDF
+- Phase 5.5: Backend PDF export, tests, README polish, and optimization
+
+### Next Phase
+
+- Phase 6: Community Dashboard
+✅ Update Future Improvements Section
+
+Add this:
+
+## 🔮 Future Improvements
+
+- Community Dashboard
+- Compare user roadmap progress with other learners
+- User authentication
+- Saved user profiles
+- Roadmap progress tracking
+- PDF design templates
+- Email PDF report to user
+- Admin dashboard
+- Deployment with MongoDB Atlas
+- Docker setup
+- Accessibility testing with axe
+- More frontend and backend test coverage

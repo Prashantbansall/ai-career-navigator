@@ -13,6 +13,7 @@ import Analysis from "../models/Analysis.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import AppError from "../utils/AppError.js";
 import { roleSkills } from "../utils/roleSkills.js";
+import { generateAnalysisPdfBuffer } from "../services/pdfReportService.js";
 
 /**
  * Escapes user search input before creating a RegExp.
@@ -141,6 +142,38 @@ export const getAnalysisById = asyncHandler(async (req, res) => {
       analysis,
     },
   });
+});
+
+/**
+ * GET /api/analysis/:id/pdf
+ *
+ * Generates and downloads a PDF report for a saved analysis.
+ *
+ * This is the backend PDF export version using Puppeteer.
+ * Unlike frontend screenshot-based PDF export, this generates a cleaner,
+ * print-friendly PDF directly from saved MongoDB analysis data.
+ */
+export const exportAnalysisPdf = asyncHandler(async (req, res) => {
+  const analysis = await Analysis.findById(req.params.id);
+
+  if (!analysis) {
+    throw new AppError("Analysis not found", 404);
+  }
+
+  const pdfBuffer = await generateAnalysisPdfBuffer(analysis);
+
+  const safeResumeName = String(analysis.resumeName || "career-roadmap")
+    .replace(/[^a-z0-9]/gi, "-")
+    .replace(/-+/g, "-")
+    .toLowerCase();
+
+  const fileName = `${safeResumeName}-career-roadmap.pdf`;
+
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+  res.setHeader("Content-Length", pdfBuffer.length);
+
+  res.send(pdfBuffer);
 });
 
 /**

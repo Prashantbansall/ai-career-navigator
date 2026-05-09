@@ -11,6 +11,7 @@ import SkeletonCard from "../components/ui/SkeletonCard";
 import { getAnalysisByIdAPI, deleteAnalysisAPI } from "../services/api";
 import { getReadinessStyle } from "../utils/readiness";
 import { motion } from "framer-motion";
+import { exportAnalysisPdfAPI } from "../services/api";
 import {
   ArrowLeft,
   Brain,
@@ -28,6 +29,7 @@ import {
   AlertTriangle,
   WandSparkles,
   Database,
+  Download,
 } from "lucide-react";
 
 export default function AnalysisDetail() {
@@ -39,6 +41,7 @@ export default function AnalysisDetail() {
   const [deletingId, setDeletingId] = useState("");
   const [deleteTargetId, setDeleteTargetId] = useState(null);
   const [error, setError] = useState("");
+  const [exportingPDF, setExportingPDF] = useState(false);
 
   const extractedSkills = analysis?.extractedSkills || [];
   const requiredSkills = analysis?.requiredSkills || [];
@@ -137,6 +140,30 @@ export default function AnalysisDetail() {
     setDeleteTargetId(null);
   };
 
+  const handleExportPDF = async () => {
+    const analysisId = analysis?._id || analysis?.analysisId;
+
+    if (!analysisId) {
+      toast.error("Analysis ID is missing. Unable to export PDF.");
+      return;
+    }
+
+    if (exportingPDF) return;
+
+    try {
+      setExportingPDF(true);
+
+      await exportAnalysisPdfAPI(analysisId);
+
+      toast.success("Roadmap PDF exported successfully");
+    } catch (error) {
+      console.error("Failed to export roadmap PDF:", error.message);
+      toast.error(error.message || "Unable to export PDF. Please try again.");
+    } finally {
+      setExportingPDF(false);
+    }
+  };
+
   return (
     <GradientBackground>
       <Navbar />
@@ -187,6 +214,26 @@ export default function AnalysisDetail() {
               <GlowButton onClick={openInDashboard} variant="solid">
                 Open in Dashboard
               </GlowButton>
+
+              <button
+                type="button"
+                onClick={handleExportPDF}
+                disabled={exportingPDF}
+                aria-label="Export this analysis as PDF"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 disabled:opacity-60 disabled:cursor-not-allowed rounded-xl text-sm transition"
+              >
+                {exportingPDF ? (
+                  <>
+                    <span className="h-4 w-4 rounded-full border-2 border-indigo-300/30 border-t-indigo-300 animate-spin" />
+                    Generating PDF...
+                  </>
+                ) : (
+                  <>
+                    <Download size={16} aria-hidden="true" />
+                    Export PDF
+                  </>
+                )}
+              </button>
 
               <button
                 onClick={requestDeleteAnalysis}

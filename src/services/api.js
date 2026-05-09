@@ -112,3 +112,56 @@ export const getRolesAPI = async () => {
 
   return data.data.roles;
 };
+
+// Downloads a backend-generated PDF report for a saved analysis.
+export const exportAnalysisPdfAPI = async (analysisId) => {
+  if (!analysisId) {
+    throw new Error("Analysis ID is required to export PDF.");
+  }
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/analysis/${analysisId}/pdf`);
+
+    if (!res.ok) {
+      let message = "Failed to export PDF.";
+
+      try {
+        const data = await res.json();
+        message = data.error || data.message || message;
+      } catch {
+        // PDF endpoints may not always return JSON on failure.
+      }
+
+      throw new Error(message);
+    }
+
+    const blob = await res.blob();
+
+    const contentDisposition = res.headers.get("Content-Disposition");
+    let fileName = "career-roadmap.pdf";
+
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename="?([^"]+)"?/);
+
+      if (match?.[1]) {
+        fileName = match[1];
+      }
+    }
+
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = downloadUrl;
+    link.download = fileName;
+
+    document.body.appendChild(link);
+    link.click();
+
+    link.remove();
+    window.URL.revokeObjectURL(downloadUrl);
+
+    return true;
+  } catch (error) {
+    handleNetworkError(error);
+  }
+};

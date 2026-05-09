@@ -9,11 +9,14 @@ import GradientBackground from "../components/layout/GradientBackground";
 import { getReadinessStyle } from "../utils/readiness";
 import toast from "react-hot-toast";
 import ConfirmModal from "../components/ui/ConfirmModal";
+import RoadmapReport from "../components/dashboard/RoadmapReport";
+import { exportRoadmapPDF } from "../utils/exportPdf";
 
 import {
   getAnalysisHistoryAPI,
   getAnalysisByIdAPI,
   deleteAnalysisAPI,
+  exportAnalysisPdfAPI,
 } from "../services/api";
 
 import {
@@ -33,6 +36,7 @@ import {
   Trash2,
   WandSparkles,
   TrendingUp,
+  Download,
 } from "lucide-react";
 
 export default function Dashboard() {
@@ -61,6 +65,7 @@ export default function Dashboard() {
   const [deletingId, setDeletingId] = useState("");
   const [historyError, setHistoryError] = useState("");
   const [deleteTargetId, setDeleteTargetId] = useState(null);
+  const [exportingPDF, setExportingPDF] = useState(false);
 
   const extractedSkills = analysis?.extractedSkills || [];
   const requiredSkills = analysis?.requiredSkills || [];
@@ -116,6 +121,37 @@ export default function Dashboard() {
 
     fetchRecentHistory();
   }, []);
+
+  const handleExportPDF = async () => {
+    if (exportingPDF) return;
+
+    try {
+      setExportingPDF(true);
+
+      const analysisId = analysis?._id || analysis?.analysisId;
+
+      if (analysisId) {
+        try {
+          await exportAnalysisPdfAPI(analysisId);
+          toast.success("Roadmap PDF exported successfully");
+          return;
+        } catch (backendError) {
+          console.warn(
+            "Backend PDF export failed. Falling back to frontend export:",
+            backendError.message,
+          );
+        }
+      }
+
+      await exportRoadmapPDF("roadmap-export", "career-roadmap.pdf");
+      toast.success("Roadmap PDF exported successfully");
+    } catch (error) {
+      console.error("Failed to export roadmap PDF:", error.message);
+      toast.error(error.message || "Unable to export PDF. Please try again.");
+    } finally {
+      setExportingPDF(false);
+    }
+  };
 
   const clearAnalysis = () => {
     localStorage.removeItem("analysis");
@@ -258,18 +294,42 @@ export default function Dashboard() {
           </motion.div>
 
           {analysis && (
-            <motion.button
-              type="button"
+            <motion.div
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.45 }}
-              onClick={clearAnalysis}
-              aria-label="Clear current resume analysis"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-red-500/20 text-red-300 hover:bg-red-500/30 rounded-xl text-sm transition w-fit"
+              className="flex flex-wrap items-center gap-3"
             >
-              <RefreshCcw size={16} aria-hidden="true" />
-              Clear Analysis
-            </motion.button>
+              <button
+                type="button"
+                onClick={handleExportPDF}
+                disabled={exportingPDF}
+                aria-label="Export roadmap as PDF"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 disabled:opacity-60 disabled:cursor-not-allowed rounded-xl text-sm transition w-fit"
+              >
+                {exportingPDF ? (
+                  <>
+                    <span className="h-4 w-4 rounded-full border-2 border-indigo-300/30 border-t-indigo-300 animate-spin" />
+                    Generating PDF...
+                  </>
+                ) : (
+                  <>
+                    <Download size={16} aria-hidden="true" />
+                    Export PDF
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={clearAnalysis}
+                aria-label="Clear current resume analysis"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-red-500/20 text-red-300 hover:bg-red-500/30 rounded-xl text-sm transition w-fit"
+              >
+                <RefreshCcw size={16} aria-hidden="true" />
+                Clear Analysis
+              </button>
+            </motion.div>
           )}
         </div>
 
@@ -889,6 +949,27 @@ export default function Dashboard() {
           </>
         )}
       </main>
+
+      {/* Hidden PDF Export Section */}
+      {analysis && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            left: "0",
+            top: "0",
+            width: "794px",
+            backgroundColor: "#ffffff",
+            opacity: 0,
+            pointerEvents: "none",
+            zIndex: -1,
+          }}
+        >
+          <div id="roadmap-export">
+            <RoadmapReport analysis={analysis} />
+          </div>
+        </div>
+      )}
 
       <ConfirmModal
         isOpen={Boolean(deleteTargetId)}

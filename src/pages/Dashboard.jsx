@@ -18,6 +18,7 @@ import {
   getAnalysisByIdAPI,
   deleteAnalysisAPI,
   exportAnalysisPdfAPI,
+  getCommunityStatsAPI,
 } from "../services/api";
 
 import {
@@ -67,6 +68,9 @@ export default function Dashboard() {
   const [historyError, setHistoryError] = useState("");
   const [deleteTargetId, setDeleteTargetId] = useState(null);
   const [exportingPDF, setExportingPDF] = useState(false);
+  const [communityStats, setCommunityStats] = useState(null);
+  const [communityLoading, setCommunityLoading] = useState(false);
+  const [communityError, setCommunityError] = useState("");
 
   const extractedSkills = analysis?.extractedSkills || [];
   const requiredSkills = analysis?.requiredSkills || [];
@@ -121,6 +125,26 @@ export default function Dashboard() {
     };
 
     fetchRecentHistory();
+  }, []);
+
+  useEffect(() => {
+    const fetchCommunityStats = async () => {
+      try {
+        setCommunityLoading(true);
+        setCommunityError("");
+
+        const data = await getCommunityStatsAPI();
+
+        setCommunityStats(data);
+      } catch (error) {
+        console.error("Failed to load community insights:", error.message);
+        setCommunityError("Unable to load community insights right now.");
+      } finally {
+        setCommunityLoading(false);
+      }
+    };
+
+    fetchCommunityStats();
   }, []);
 
   const createPdfFileName = () => {
@@ -332,7 +356,7 @@ export default function Dashboard() {
                 onClick={handleExportPDF}
                 disabled={exportingPDF}
                 aria-label="Export roadmap as PDF"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 disabled:opacity-60 disabled:cursor-not-allowed rounded-xl text-sm transition w-fit"
+                className="carbon-button-soft inline-flex w-fit items-center gap-2 rounded-xl border border-indigo-500/20 bg-indigo-500/20 px-4 py-2 text-sm font-semibold text-indigo-300 transition duration-200 hover:bg-indigo-500/30 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {exportingPDF ? (
                   <>
@@ -351,7 +375,7 @@ export default function Dashboard() {
                 type="button"
                 onClick={clearAnalysis}
                 aria-label="Clear current resume analysis"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-red-500/20 text-red-300 hover:bg-red-500/30 rounded-xl text-sm transition w-fit"
+                className="inline-flex w-fit items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/20 px-4 py-2 text-sm font-semibold text-red-300 transition duration-200 hover:bg-red-500/30"
               >
                 <RefreshCcw size={16} aria-hidden="true" />
                 Clear Analysis
@@ -489,6 +513,131 @@ export default function Dashboard() {
                   </div>
                 </Card>
               </motion.div>
+            </motion.div>
+
+            {/* COMMUNITY INSIGHTS */}
+            <motion.div
+              initial={{ opacity: 0, y: 22 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55 }}
+            >
+              <Card className="mb-8">
+                <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <div className="mb-2 flex items-center gap-2 text-indigo-300">
+                      <TrendingUp size={20} aria-hidden="true" />
+                      <h3 className="text-lg font-semibold text-indigo-400">
+                        Community Insights
+                      </h3>
+                    </div>
+
+                    <p className="text-sm text-gray-400">
+                      See how your roadmap compares with learning trends from
+                      other resume analyses.
+                    </p>
+                  </div>
+
+                  <Link
+                    to="/community"
+                    className="inline-flex w-fit items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:-translate-y-0.5 hover:border-indigo-400/40 hover:bg-white/10"
+                  >
+                    View Community
+                  </Link>
+                </div>
+
+                {communityLoading && (
+                  <div
+                    className="flex items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-5"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-indigo-500/20 border-t-indigo-400"></div>
+                    <p className="text-sm text-gray-400">
+                      Loading community insights...
+                    </p>
+                  </div>
+                )}
+
+                {!communityLoading && communityError && (
+                  <div
+                    role="alert"
+                    className="rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-5 text-sm text-yellow-300"
+                  >
+                    {communityError}
+                  </div>
+                )}
+
+                {!communityLoading && !communityError && communityStats && (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:-translate-y-1 hover:border-indigo-400/40 hover:bg-white/10">
+                      <p className="text-xs uppercase tracking-wide text-gray-500">
+                        Popular Role
+                      </p>
+                      <h4 className="mt-2 text-lg font-bold text-white">
+                        {communityStats.mostPopularTargetRole?.role ||
+                          "No data"}
+                      </h4>
+                      <p className="mt-1 text-sm text-gray-400">
+                        {communityStats.mostPopularTargetRole?.roleTitle ||
+                          "Most selected target role"}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:-translate-y-1 hover:border-red-400/40 hover:bg-white/10">
+                      <p className="text-xs uppercase tracking-wide text-gray-500">
+                        Common Gap
+                      </p>
+                      <h4 className="mt-2 text-lg font-bold text-white">
+                        {communityStats.mostCommonMissingSkill?.skill ||
+                          "No data"}
+                      </h4>
+                      <p className="mt-1 text-sm text-gray-400">
+                        {communityStats.mostCommonMissingSkill
+                          ? `${communityStats.mostCommonMissingSkill.count} learners missing this`
+                          : "Most common missing skill"}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:-translate-y-1 hover:border-green-400/40 hover:bg-white/10">
+                      <p className="text-xs uppercase tracking-wide text-gray-500">
+                        Avg Readiness
+                      </p>
+                      <h4 className="mt-2 text-lg font-bold text-white">
+                        {communityStats.averageReadinessScore || 0}%
+                      </h4>
+                      <p className="mt-1 text-sm text-gray-400">
+                        Average score across analyses
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:-translate-y-1 hover:border-cyan-400/40 hover:bg-white/10">
+                      <p className="text-xs uppercase tracking-wide text-gray-500">
+                        Top Roadmap Skill
+                      </p>
+                      <h4 className="mt-2 text-lg font-bold text-white">
+                        {communityStats.topRoadmapSkill?.skill || "No data"}
+                      </h4>
+                      <p className="mt-1 text-sm text-gray-400">
+                        {communityStats.topRoadmapSkill
+                          ? `${communityStats.topRoadmapSkill.count} roadmap mentions`
+                          : "Most recommended skill"}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:-translate-y-1 hover:border-purple-400/40 hover:bg-white/10">
+                      <p className="text-xs uppercase tracking-wide text-gray-500">
+                        Total Analyses
+                      </p>
+                      <h4 className="mt-2 text-lg font-bold text-white">
+                        {communityStats.totalAnalyses || 0}
+                      </h4>
+                      <p className="mt-1 text-sm text-gray-400">
+                        Saved resume analyses
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </Card>
             </motion.div>
 
             {/* ROADMAP SOURCE */}
@@ -679,7 +828,7 @@ export default function Dashboard() {
                           initial={{ opacity: 0, y: 16 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: index * 0.1 }}
-                          className="rounded-xl bg-white/5 border border-white/10 p-4 text-sm md:text-base text-gray-400 hover:bg-white/10 transition"
+                          className="premium-inner-card rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-gray-400 transition hover:bg-white/10 md:text-base"
                         >
                           <span className="text-indigo-300 font-semibold">
                             {index + 1}.
@@ -729,14 +878,14 @@ export default function Dashboard() {
                         >
                           <div
                             aria-hidden="true"
-                            className="absolute left-0 top-1 w-8 h-8 rounded-full bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-300"
+                            className="absolute left-0 top-1 flex h-8 w-8 items-center justify-center rounded-full border border-indigo-500/40 bg-indigo-500/20 text-indigo-300 shadow-sm"
                           >
                             {i + 1}
                           </div>
 
-                          <div className="p-4 md:p-5 bg-[#0f172a]/80 backdrop-blur-md rounded-xl border border-white/10 hover:border-indigo-500/30 transition">
-                            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                              <h4 className="font-semibold text-indigo-400">
+                          <div className="premium-roadmap-card rounded-2xl p-4 backdrop-blur-md transition duration-200 md:p-5">
+                            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                              <h4 className="premium-roadmap-title font-semibold text-indigo-400">
                                 {item.week}: {item.skill}
                               </h4>
 
@@ -760,41 +909,45 @@ export default function Dashboard() {
                               </div>
                             </div>
 
-                            <p className="text-sm md:text-base text-gray-400 mt-3">
-                              <span className="text-gray-300">Learn:</span>{" "}
-                              {item.learn}
-                            </p>
-
-                            {item.howToLearn && (
-                              <p className="text-sm md:text-base text-gray-400 mt-2">
-                                <span className="text-gray-300">
-                                  How to Learn:
+                            <div className="mt-4 space-y-3">
+                              <p className="premium-roadmap-text text-sm leading-relaxed text-gray-400 md:text-base">
+                                <span className="premium-roadmap-label font-semibold text-gray-300">
+                                  Learn:
                                 </span>{" "}
-                                {item.howToLearn}
+                                {item.learn}
                               </p>
-                            )}
 
-                            <p className="text-sm md:text-base text-gray-400 mt-2">
-                              <span className="text-gray-300">
-                                Free Resource:
-                              </span>{" "}
-                              {item.resource}
-                            </p>
+                              {item.howToLearn && (
+                                <p className="premium-roadmap-text text-sm leading-relaxed text-gray-400 md:text-base">
+                                  <span className="premium-roadmap-label font-semibold text-gray-300">
+                                    How to Learn:
+                                  </span>{" "}
+                                  {item.howToLearn}
+                                </p>
+                              )}
 
-                            <p className="text-sm md:text-base text-gray-400 mt-2">
-                              <span className="text-gray-300">
-                                Mini Project:
-                              </span>{" "}
-                              {item.project}
-                            </p>
+                              <p className="premium-roadmap-text text-sm leading-relaxed text-gray-400 md:text-base">
+                                <span className="premium-roadmap-label font-semibold text-gray-300">
+                                  Free Resource:
+                                </span>{" "}
+                                {item.resource}
+                              </p>
+
+                              <p className="premium-roadmap-text text-sm leading-relaxed text-gray-400 md:text-base">
+                                <span className="premium-roadmap-label font-semibold text-gray-300">
+                                  Mini Project:
+                                </span>{" "}
+                                {item.project}
+                              </p>
+                            </div>
                           </div>
                         </motion.div>
                       ))}
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-xl bg-white/5 border border-white/10 p-5">
-                    <p className="text-sm md:text-base text-gray-400">
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-5 ">
+                    <p className="text-sm text-gray-400 md:text-base">
                       Your profile already matches the target role well. Keep
                       building advanced projects and applying for internships.
                     </p>
@@ -878,7 +1031,7 @@ export default function Dashboard() {
                         key={item._id}
                         variants={fadeUp}
                         transition={{ duration: 0.45 }}
-                        className="rounded-xl bg-white/5 border border-white/10 p-4 hover:bg-white/10 hover:border-indigo-500/30 transition"
+                        className="premium-inner-card rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:bg-white/10 hover:border-indigo-500/30"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
@@ -924,7 +1077,7 @@ export default function Dashboard() {
                             aria-label={`View details for ${
                               item.resumeName || item.targetRole
                             } analysis`}
-                            className="inline-flex items-center justify-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm text-gray-200 transition"
+                            className="carbon-button-soft inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-gray-200 transition hover:bg-white/10"
                           >
                             Detail
                           </Link>
@@ -936,7 +1089,7 @@ export default function Dashboard() {
                             aria-label={`Open ${
                               item.resumeName || item.targetRole
                             } analysis`}
-                            className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed rounded-lg text-sm text-white transition"
+                            className="carbon-button flex-1 inline-flex items-center justify-center gap-2 rounded-lg border border-indigo-500 bg-indigo-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-indigo-600 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             <Eye size={15} aria-hidden="true" />
                             {openingId === item._id ? "Opening..." : "Open"}
@@ -951,7 +1104,7 @@ export default function Dashboard() {
                             aria-label={`Delete ${
                               item.resumeName || item.targetRole
                             } analysis`}
-                            className="inline-flex items-center justify-center gap-2 px-3 py-2 bg-red-500/20 text-red-300 hover:bg-red-500/30 disabled:opacity-60 disabled:cursor-not-allowed rounded-lg text-sm transition"
+                            className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-500/20 bg-red-500/20 px-3 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             <Trash2 size={15} aria-hidden="true" />
                             {deletingId === item._id ? "..." : "Delete"}

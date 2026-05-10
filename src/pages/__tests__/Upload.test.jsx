@@ -1,6 +1,5 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import { BrowserRouter } from "react-router-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { renderWithProviders, screen, waitFor } from "../../test/test-utils";
 import Upload from "../Upload";
 
 vi.mock("../../services/api", () => ({
@@ -24,11 +23,7 @@ describe("Upload Page", () => {
   });
 
   it("renders upload page heading and upload area", async () => {
-    render(
-      <BrowserRouter>
-        <Upload />
-      </BrowserRouter>,
-    );
+    renderWithProviders(<Upload />, { route: "/upload" });
 
     expect(
       screen.getByRole("heading", {
@@ -56,11 +51,7 @@ describe("Upload Page", () => {
   });
 
   it("does not show analyze button before file upload", async () => {
-    render(
-      <BrowserRouter>
-        <Upload />
-      </BrowserRouter>,
-    );
+    renderWithProviders(<Upload />, { route: "/upload" });
 
     await waitFor(() => {
       expect(
@@ -80,11 +71,7 @@ describe("Upload Page", () => {
 
     getRolesAPI.mockRejectedValueOnce(new Error("Backend down"));
 
-    render(
-      <BrowserRouter>
-        <Upload />
-      </BrowserRouter>,
-    );
+    renderWithProviders(<Upload />, { route: "/upload" });
 
     await waitFor(() => {
       expect(

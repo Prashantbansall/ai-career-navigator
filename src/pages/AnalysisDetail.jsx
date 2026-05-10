@@ -221,7 +221,7 @@ export default function AnalysisDetail() {
                 onClick={handleExportPDF}
                 disabled={exportingPDF}
                 aria-label="Export this analysis as PDF"
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 disabled:opacity-60 disabled:cursor-not-allowed rounded-xl text-sm transition"
+                className="carbon-button-soft inline-flex items-center justify-center gap-2 rounded-2xl border px-6 py-3 font-semibold"
               >
                 {exportingPDF ? (
                   <>

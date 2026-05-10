@@ -9,13 +9,14 @@ const Upload = lazy(() => import("./pages/Upload"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const History = lazy(() => import("./pages/History"));
 const AnalysisDetail = lazy(() => import("./pages/AnalysisDetail"));
+const CommunityDashboard = lazy(() => import("./pages/CommunityDashboard"));
 
 function PageLoader() {
   return (
     <GradientBackground>
-      <div className="min-h-screen flex items-center justify-center px-4">
+      <div className="flex min-h-screen items-center justify-center px-4">
         <div className="text-center">
-          <div className="mx-auto mb-5 h-12 w-12 rounded-full border-4 border-indigo-500/20 border-t-indigo-400 animate-spin"></div>
+          <div className="mx-auto mb-5 h-12 w-12 animate-spin rounded-full border-4 border-indigo-500/20 border-t-indigo-400"></div>
           <p className="text-sm text-gray-400">Loading page...</p>
         </div>
       </div>
@@ -33,6 +34,8 @@ function App() {
             background: "#0f172a",
             color: "#e2e8f0",
             border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: "16px",
+            boxShadow: "0 18px 50px rgba(0,0,0,0.35)",
           },
           success: {
             iconTheme: {
@@ -56,6 +59,7 @@ function App() {
             <Route path="/upload" element={<Upload />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/history" element={<History />} />
+            <Route path="/community" element={<CommunityDashboard />} />
             <Route path="/analysis/:id" element={<AnalysisDetail />} />
           </Routes>
         </Suspense>

@@ -1,5 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import { BrowserRouter } from "react-router-dom";
+import { renderWithProviders, screen, waitFor } from "../../test/test-utils";
 import { describe, it, expect, vi } from "vitest";
 import History from "../History";
 
@@ -13,11 +12,7 @@ vi.mock("../../services/api", () => ({
 
 describe("History Page", () => {
   it("renders empty history state", async () => {
-    render(
-      <BrowserRouter>
-        <History />
-      </BrowserRouter>,
-    );
+    renderWithProviders(<History />, { route: "/history" });
 
     await waitFor(() => {
       expect(screen.getByText(/No Analysis History Yet/i)).toBeInTheDocument();

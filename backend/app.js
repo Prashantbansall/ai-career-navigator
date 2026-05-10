@@ -7,6 +7,7 @@ import resumeRoutes from "./routes/resumeRoutes.js";
 import analysisRoutes from "./routes/analysisRoutes.js";
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
 import roleRoutes from "./routes/roleRoutes.js";
+import communityRoutes from "./routes/communityRoutes.js";
 
 const app = express();
 
@@ -65,6 +66,7 @@ app.get("/api/health", (req, res) => {
 app.use("/api/resume", resumeRoutes);
 app.use("/api/analysis", analysisRoutes);
 app.use("/api/roles", roleRoutes);
+app.use("/api/community", communityRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

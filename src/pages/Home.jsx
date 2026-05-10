@@ -4,6 +4,7 @@ import GradientBackground from "../components/layout/GradientBackground";
 import GlowButton from "../components/ui/GlowButton";
 import AnimatedBadge from "../components/ui/AnimatedBadge";
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 import {
   Upload,
   Brain,
@@ -181,14 +182,18 @@ export default function Home() {
               transition={{ duration: 0.85 }}
               className="mt-8 flex flex-col sm:flex-row gap-4 justify-center lg:justify-start"
             >
-              <GlowButton to="/upload" variant="solid">
-                Analyze Resume
-                <ArrowRight size={18} />
-              </GlowButton>
+              <div className="mt-8 flex flex-col gap-4 sm:flex-row">
+                <GlowButton to="/upload" variant="solid">
+                  Analyze Resume <ArrowRight size={18} aria-hidden="true" />
+                </GlowButton>
 
-              <GlowButton to="/dashboard" variant="primary">
-                View Dashboard
-              </GlowButton>
+                <Link
+                  to="/dashboard"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-6 py-3 font-semibold text-slate-100 shadow-lg shadow-black/10 backdrop-blur-md transition duration-200 hover:-translate-y-1 hover:border-indigo-400/40 hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-slate-950"
+                >
+                  View Dashboard <ArrowRight size={18} aria-hidden="true" />
+                </Link>
+              </div>
             </motion.div>
 
             <motion.div
@@ -246,59 +251,77 @@ export default function Home() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="rounded-xl bg-white/5 border border-white/10 p-4">
-                    <div className="flex items-center gap-2 text-indigo-300 mb-2">
-                      <CheckCircle2 size={18} />
-                      <p className="font-semibold">Matched Skills</p>
-                    </div>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.94, y: 24 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{ duration: 0.8 }}
+                  >
+                    <div className="rounded-xl bg-white/5 border border-white/10 p-4">
+                      <div className="flex items-center gap-2 text-indigo-300 mb-2">
+                        <CheckCircle2 size={18} />
+                        <p className="font-semibold">Matched Skills</p>
+                      </div>
 
-                    <div className="flex flex-wrap gap-2">
-                      <AnimatedBadge variant="success">React</AnimatedBadge>
-                      <AnimatedBadge variant="success">SQL</AnimatedBadge>
-                      <AnimatedBadge variant="success">DSA</AnimatedBadge>
+                      <div className="flex flex-wrap gap-2">
+                        <AnimatedBadge variant="success">React</AnimatedBadge>
+                        <AnimatedBadge variant="success">SQL</AnimatedBadge>
+                        <AnimatedBadge variant="success">DSA</AnimatedBadge>
+                      </div>
                     </div>
-                  </div>
+                  </motion.div>
 
-                  <div className="rounded-xl bg-white/5 border border-white/10 p-4">
-                    <div className="flex items-center gap-2 text-red-300 mb-2">
-                      <Target size={18} />
-                      <p className="font-semibold">Skill Gaps</p>
-                    </div>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.94, y: 24 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{ duration: 0.8 }}
+                  >
+                    <div className="rounded-xl bg-white/5 border border-white/10 p-4">
+                      <div className="flex items-center gap-2 text-red-300 mb-2">
+                        <Target size={18} />
+                        <p className="font-semibold">Skill Gaps</p>
+                      </div>
 
-                    <div className="flex flex-wrap gap-2">
-                      <AnimatedBadge variant="danger">Node.js</AnimatedBadge>
-                      <AnimatedBadge variant="danger">
-                        System Design
-                      </AnimatedBadge>
+                      <div className="flex flex-wrap gap-2">
+                        <AnimatedBadge variant="danger">Node.js</AnimatedBadge>
+                        <AnimatedBadge variant="danger">
+                          System Design
+                        </AnimatedBadge>
+                      </div>
                     </div>
-                  </div>
+                  </motion.div>
                 </div>
 
-                <div className="mt-5 rounded-xl bg-white/5 border border-white/10 p-4">
-                  <div className="flex items-center gap-2 text-green-300 mb-2">
-                    <Route size={18} />
-                    <p className="font-semibold">Roadmap Preview</p>
-                  </div>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.94, y: 24 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  transition={{ duration: 0.8 }}
+                >
+                  <div className="mt-5 rounded-xl bg-white/5 border border-white/10 p-4">
+                    <div className="flex items-center gap-2 text-green-300 mb-2">
+                      <Route size={18} />
+                      <p className="font-semibold">Roadmap Preview</p>
+                    </div>
 
-                  <div className="space-y-3">
-                    {[
-                      "Week 1: Node.js",
-                      "Week 2: Express.js",
-                      "Week 3: System Design",
-                    ].map((item, index) => (
-                      <motion.div
-                        key={item}
-                        initial={{ opacity: 0, x: -16 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.5 + index * 0.15 }}
-                        className="flex items-center gap-3 text-sm text-gray-400"
-                      >
-                        <span className="h-2 w-2 rounded-full bg-indigo-400"></span>
-                        {item}
-                      </motion.div>
-                    ))}
+                    <div className="space-y-3">
+                      {[
+                        "Week 1: Node.js",
+                        "Week 2: Express.js",
+                        "Week 3: System Design",
+                      ].map((item, index) => (
+                        <motion.div
+                          key={item}
+                          initial={{ opacity: 0, x: -16 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.5 + index * 0.15 }}
+                          className="flex items-center gap-3 text-sm text-gray-400"
+                        >
+                          <span className="h-2 w-2 rounded-full bg-indigo-400"></span>
+                          {item}
+                        </motion.div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                </motion.div>
               </div>
             </Card>
           </motion.div>

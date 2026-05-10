@@ -1,6 +1,5 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { renderWithProviders, screen, waitFor } from "../../test/test-utils";
 import userEvent from "@testing-library/user-event";
-import { BrowserRouter } from "react-router-dom";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import Dashboard from "../Dashboard";
 import { exportAnalysisPdfAPI } from "../../services/api";
@@ -13,6 +12,26 @@ vi.mock("../../services/api", () => ({
   getAnalysisByIdAPI: vi.fn(),
   deleteAnalysisAPI: vi.fn(),
   exportAnalysisPdfAPI: vi.fn().mockResolvedValue(true),
+  getCommunityStatsAPI: vi.fn().mockResolvedValue({
+    totalAnalyses: 12,
+    averageReadinessScore: 68,
+    mostPopularTargetRole: {
+      role: "SDE",
+      roleTitle: "Software Development Engineer",
+      count: 5,
+    },
+    mostCommonMissingSkill: {
+      skill: "System Design",
+      count: 4,
+    },
+    topRoadmapSkill: {
+      skill: "Node.js",
+      count: 3,
+    },
+    popularTargetRoles: [],
+    commonMissingSkills: [],
+    popularRoadmapSkills: [],
+  }),
 }));
 
 vi.mock("../../utils/exportPdf", () => ({
@@ -72,11 +91,7 @@ describe("Dashboard Page", () => {
   });
 
   it("renders empty dashboard state when no analysis exists", () => {
-    render(
-      <BrowserRouter>
-        <Dashboard />
-      </BrowserRouter>,
-    );
+    renderWithProviders(<Dashboard />, { route: "/dashboard" });
 
     expect(screen.getByText(/No Resume Analysis Found/i)).toBeInTheDocument();
 
@@ -92,11 +107,7 @@ describe("Dashboard Page", () => {
   it("renders dashboard data from localStorage", async () => {
     localStorage.setItem("analysis", JSON.stringify(mockAnalysis));
 
-    render(
-      <BrowserRouter>
-        <Dashboard />
-      </BrowserRouter>,
-    );
+    renderWithProviders(<Dashboard />, { route: "/dashboard" });
 
     expect(screen.getByText(/Your Career Dashboard/i)).toBeInTheDocument();
 
@@ -126,11 +137,7 @@ describe("Dashboard Page", () => {
       }),
     );
 
-    render(
-      <BrowserRouter>
-        <Dashboard />
-      </BrowserRouter>,
-    );
+    renderWithProviders(<Dashboard />, { route: "/dashboard" });
 
     expect(
       screen.getByRole("button", { name: /Clear current resume analysis/i }),
@@ -144,11 +151,7 @@ describe("Dashboard Page", () => {
   it("shows Export PDF button when analysis exists", async () => {
     localStorage.setItem("analysis", JSON.stringify(mockAnalysis));
 
-    render(
-      <BrowserRouter>
-        <Dashboard />
-      </BrowserRouter>,
-    );
+    renderWithProviders(<Dashboard />, { route: "/dashboard" });
 
     expect(
       await screen.findByRole("button", { name: /Export roadmap as PDF/i }),
@@ -160,11 +163,7 @@ describe("Dashboard Page", () => {
 
     localStorage.setItem("analysis", JSON.stringify(mockAnalysis));
 
-    render(
-      <BrowserRouter>
-        <Dashboard />
-      </BrowserRouter>,
-    );
+    renderWithProviders(<Dashboard />, { route: "/dashboard" });
 
     const exportButton = await screen.findByRole("button", {
       name: /Export roadmap as PDF/i,
@@ -191,11 +190,7 @@ describe("Dashboard Page", () => {
 
     localStorage.setItem("analysis", JSON.stringify(localOnlyAnalysis));
 
-    render(
-      <BrowserRouter>
-        <Dashboard />
-      </BrowserRouter>,
-    );
+    renderWithProviders(<Dashboard />, { route: "/dashboard" });
 
     const exportButton = await screen.findByRole("button", {
       name: /Export roadmap as PDF/i,
@@ -231,11 +226,7 @@ describe("Dashboard Page", () => {
 
     localStorage.setItem("analysis", JSON.stringify(mockAnalysis));
 
-    render(
-      <BrowserRouter>
-        <Dashboard />
-      </BrowserRouter>,
-    );
+    renderWithProviders(<Dashboard />, { route: "/dashboard" });
 
     const exportButton = await screen.findByRole("button", {
       name: /Export roadmap as PDF/i,
@@ -250,5 +241,24 @@ describe("Dashboard Page", () => {
     await waitFor(() => {
       expect(exportAnalysisPdfAPI).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it("renders community insights when analysis exists", async () => {
+    localStorage.setItem("analysis", JSON.stringify(mockAnalysis));
+
+    renderWithProviders(<Dashboard />, { route: "/dashboard" });
+
+    expect(await screen.findByText(/Community Insights/i)).toBeInTheDocument();
+
+    expect(screen.getByText(/Popular Role/i)).toBeInTheDocument();
+    expect(screen.getByText(/Common Gap/i)).toBeInTheDocument();
+    expect(screen.getByText(/Avg Readiness/i)).toBeInTheDocument();
+    expect(screen.getByText(/Top Roadmap Skill/i)).toBeInTheDocument();
+    expect(screen.getByText(/Total Analyses/i)).toBeInTheDocument();
+
+    expect(screen.getAllByText(/SDE/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/System Design/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Node.js/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/68%/i).length).toBeGreaterThan(0);
   });
 });

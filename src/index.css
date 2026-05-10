@@ -1,36 +1,41 @@
 @import "tailwindcss";
 
-/* Custom Theme */
+/* Dark SaaS Theme */
 :root {
-    --bg: #0f172a;
-    --card: #1e293b;
-    --primary: #6366f1;
-    --secondary: #22c55e;
-    --text: #e2e8f0;
+  --bg: #0f172a;
+  --card: #1e293b;
+  --primary: #6366f1;
+  --secondary: #22c55e;
+  --text: #e2e8f0;
 }
 
 html {
-    scroll-behavior: smooth;
+  scroll-behavior: smooth;
+  color-scheme: dark;
 }
 
 body {
-    margin: 0;
-    background-color: var(--bg);
-    color: var(--text);
-    font-family: system-ui, sans-serif;
+  margin: 0;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: system-ui, sans-serif;
+}
+
+::selection {
+  background-color: rgba(99, 102, 241, 0.35);
+  color: #ffffff;
 }
 
 @keyframes gradientMove {
-    0% {
-      background-position: 0% 50%;
-    }
-  
-    50% {
-      background-position: 100% 50%;
-    }
-  
-    100% {
-      background-position: 0% 50%;
-    }
+  0% {
+    background-position: 0% 50%;
   }
 
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}

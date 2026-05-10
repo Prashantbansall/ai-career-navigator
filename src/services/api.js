@@ -164,3 +164,16 @@ export const exportAnalysisPdfAPI = async (analysisId) => {
     handleNetworkError(error);
   }
 };
+
+export const getCommunityStatsAPI = async () => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/community/stats`);
+
+    const data = await parseResponse(res);
+
+    return data.data || data;
+  } catch (error) {
+    console.error("Community stats API error:", error.message);
+    throw error;
+  }
+};

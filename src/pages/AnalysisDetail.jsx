@@ -7,12 +7,12 @@ import Card from "../components/ui/Card";
 import AnimatedBadge from "../components/ui/AnimatedBadge";
 import GlowButton from "../components/ui/GlowButton";
 import ConfirmModal from "../components/ui/ConfirmModal";
-import EmptyState from "../components/ui/EmptyState";
 import SkeletonCard from "../components/ui/SkeletonCard";
 import { getAnalysisByIdAPI, deleteAnalysisAPI } from "../services/api";
 import { getReadinessStyle } from "../utils/readiness";
 import { motion } from "framer-motion";
 import { exportAnalysisPdfAPI } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 import {
   ArrowLeft,
   Brain,
@@ -36,6 +36,7 @@ import {
 export default function AnalysisDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
 
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -68,6 +69,14 @@ export default function AnalysisDetail() {
   };
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      navigate("/signin", { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
     const fetchAnalysis = async () => {
       try {
         setLoading(true);
@@ -76,16 +85,27 @@ export default function AnalysisDetail() {
         const data = await getAnalysisByIdAPI(id);
         setAnalysis(data);
       } catch (err) {
-        const message = err.message || "Failed to load analysis.";
+        const message =
+          err.message ||
+          "This analysis either does not exist or does not belong to your account.";
+      
         setError(message);
-        toast.error(message);
+      
+        if (
+          message.toLowerCase().includes("not found") ||
+          message.toLowerCase().includes("invalid")
+        ) {
+          toast.error("Analysis not found");
+        } else {
+          toast.error(message);
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchAnalysis();
-  }, [id]);
+  }, [id, isAuthenticated]);
 
   const formatDate = (date) => {
     if (!date) return "Unknown date";
@@ -250,19 +270,46 @@ export default function AnalysisDetail() {
         {/* LOADING */}
         {loading && <SkeletonCard count={4} />}
 
-        {/* ERROR */}
+        {/* ERROR / INVALID ANALYSIS */}
         {!loading && error && (
-          <EmptyState
-            icon={AlertTriangle}
-            title="Failed to Load Analysis"
-            description={error}
-            className="border-red-500/30"
-            action={
-              <GlowButton to="/history" variant="primary">
-                Back to History
-              </GlowButton>
-            }
-          />
+          <motion.div
+            initial={{ opacity: 0, y: 22, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.45 }}
+          >
+            <Card className="mx-auto max-w-3xl border-red-500/30 text-center">
+              <div className="mx-auto mb-6 grid h-20 w-20 place-items-center rounded-3xl border border-red-400/25 bg-red-500/10 text-red-300">
+                <AlertTriangle size={36} aria-hidden="true" />
+              </div>
+
+              <h2 className="text-2xl font-bold text-red-300 md:text-3xl">
+                Analysis Not Found
+              </h2>
+
+              <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-400 md:text-base">
+                This analysis either does not exist, has been deleted, or does
+                not belong to your account.
+              </p>
+
+              <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-400">
+                {error}
+              </div>
+
+              <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
+                <GlowButton to="/history" variant="solid">
+                  Back to History
+                </GlowButton>
+
+                <button
+                  type="button"
+                  onClick={() => navigate("/upload")}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-6 py-3 font-semibold text-slate-100 transition hover:-translate-y-0.5 hover:border-indigo-400/40 hover:bg-white/10 hover:text-white"
+                >
+                  Upload Resume
+                </button>
+              </div>
+            </Card>
+          </motion.div>
         )}
 
         {/* CONTENT */}

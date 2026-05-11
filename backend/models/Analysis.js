@@ -16,6 +16,13 @@ const roadmapItemSchema = new mongoose.Schema(
 
 const analysisSchema = new mongoose.Schema(
   {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: false,
+      index: true,
+    },
+    
     resumeName: {
       type: String,
       default: "Untitled Resume",

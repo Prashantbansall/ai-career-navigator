@@ -15,25 +15,12 @@ import AppError from "../utils/AppError.js";
 import { roleSkills } from "../utils/roleSkills.js";
 import { generateAnalysisPdfBuffer } from "../services/pdfReportService.js";
 
-/**
- * Escapes user search input before creating a RegExp.
- *
- * This prevents special regex characters like *, ?, [, ], (, ) from breaking
- * search behavior or causing unexpected regex matching.
- */
 const escapeRegex = (value = "") => {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 };
 
-// "All" is used by the frontend to disable role filtering.
 const validRoles = ["All", ...Object.keys(roleSkills)];
 
-/**
- * Converts query parameters into safe positive numbers.
- *
- * If the user sends invalid values like page=abc or limit=-5, we fallback to
- * safe defaults instead of crashing or creating invalid database queries.
- */
 const parsePositiveNumber = (value, fallback) => {
   const number = Number(value);
 
@@ -47,18 +34,15 @@ const parsePositiveNumber = (value, fallback) => {
 /**
  * GET /api/analysis
  *
- * Fetches saved analysis history with:
- * - search by resume name, target role, role title, AI provider, or source
- * - role filtering
- * - pagination using page and limit
- *
- * Example:
- * /api/analysis?search=sde&role=SDE&page=1&limit=6
+ * Fetches only the logged-in user's saved analyses.
  */
 export const getAllAnalyses = asyncHandler(async (req, res) => {
   const { search = "", role = "All", page = 1, limit = 6 } = req.query;
 
-  // Validate role filter so invalid role names return a clear API error.
+  if (!req.user?._id) {
+    throw new AppError("Not authorized, user missing", 401);
+  }
+
   if (!validRoles.includes(role)) {
     throw new AppError(
       `Invalid role filter. Valid roles are: ${validRoles.join(", ")}`,
@@ -66,13 +50,13 @@ export const getAllAnalyses = asyncHandler(async (req, res) => {
     );
   }
 
-  // Clamp pagination values to safe limits.
-  // Maximum limit is capped to prevent large database reads.
   const pageNumber = parsePositiveNumber(page, 1);
   const limitNumber = Math.min(parsePositiveNumber(limit, 6), 20);
   const skip = (pageNumber - 1) * limitNumber;
 
-  const query = {};
+  const query = {
+    userId: req.user._id,
+  };
 
   if (role !== "All") {
     query.targetRole = role;
@@ -84,7 +68,6 @@ export const getAllAnalyses = asyncHandler(async (req, res) => {
     const safeSearch = escapeRegex(normalizedSearch);
     const searchRegex = new RegExp(safeSearch, "i");
 
-    // Search across the fields shown in history cards.
     query.$or = [
       { resumeName: searchRegex },
       { targetRole: searchRegex },
@@ -101,7 +84,7 @@ export const getAllAnalyses = asyncHandler(async (req, res) => {
     .skip(skip)
     .limit(limitNumber)
     .select(
-      "resumeName targetRole roleTitle jobReadiness roadmapSource aiProviderUsed createdAt",
+      "resumeName targetRole roleTitle jobReadiness roadmapSource aiProviderUsed createdAt userId",
     );
 
   const pages = Math.max(Math.ceil(total / limitNumber), 1);
@@ -124,12 +107,13 @@ export const getAllAnalyses = asyncHandler(async (req, res) => {
 /**
  * GET /api/analysis/:id
  *
- * Fetches one complete saved analysis for:
- * - opening old results in Dashboard
- * - showing Analysis Detail page
+ * Fetches one complete saved analysis only if it belongs to the logged-in user.
  */
 export const getAnalysisById = asyncHandler(async (req, res) => {
-  const analysis = await Analysis.findById(req.params.id);
+  const analysis = await Analysis.findOne({
+    _id: req.params.id,
+    userId: req.user._id,
+  });
 
   if (!analysis) {
     throw new AppError("Analysis not found", 404);
@@ -147,14 +131,13 @@ export const getAnalysisById = asyncHandler(async (req, res) => {
 /**
  * GET /api/analysis/:id/pdf
  *
- * Generates and downloads a PDF report for a saved analysis.
- *
- * This is the backend PDF export version using Puppeteer.
- * Unlike frontend screenshot-based PDF export, this generates a cleaner,
- * print-friendly PDF directly from saved MongoDB analysis data.
+ * Exports only the logged-in user's saved analysis as PDF.
  */
 export const exportAnalysisPdf = asyncHandler(async (req, res) => {
-  const analysis = await Analysis.findById(req.params.id);
+  const analysis = await Analysis.findOne({
+    _id: req.params.id,
+    userId: req.user._id,
+  });
 
   if (!analysis) {
     throw new AppError("Analysis not found", 404);
@@ -204,16 +187,19 @@ export const exportAnalysisPdf = asyncHandler(async (req, res) => {
 /**
  * DELETE /api/analysis/:id
  *
- * Deletes a saved analysis from MongoDB history.
- * This does not affect uploaded files because resume PDFs are already cleaned
- * after processing.
+ * Deletes only the logged-in user's saved analysis.
  */
 export const deleteAnalysis = asyncHandler(async (req, res) => {
-  const analysis = await Analysis.findByIdAndDelete(req.params.id);
+  const analysis = await Analysis.findOne({
+    _id: req.params.id,
+    userId: req.user._id,
+  });
 
   if (!analysis) {
     throw new AppError("Analysis not found", 404);
   }
+
+  await analysis.deleteOne();
 
   res.json({
     success: true,

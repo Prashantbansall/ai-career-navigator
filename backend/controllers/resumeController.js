@@ -116,6 +116,7 @@ export const analyzeResume = asyncHandler(async (req, res) => {
 
     // Save every analysis so users can reopen it from History later.
     const savedAnalysis = await Analysis.create({
+      userId: req.user?._id,
       resumeName: req.file.originalname,
       ...result,
     });
@@ -124,6 +125,7 @@ export const analyzeResume = asyncHandler(async (req, res) => {
     const analysisResponse = {
       analysisId: savedAnalysis._id,
       _id: savedAnalysis._id,
+      userId: savedAnalysis.userId,
       resumeName: savedAnalysis.resumeName,
       createdAt: savedAnalysis.createdAt,
       ...result,

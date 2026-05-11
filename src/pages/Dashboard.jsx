@@ -12,6 +12,7 @@ import ConfirmModal from "../components/ui/ConfirmModal";
 import EmptyState from "../components/ui/EmptyState";
 import RoadmapReport from "../components/dashboard/RoadmapReport";
 import { exportRoadmapPDF } from "../utils/exportPdf";
+import { useAuth } from "../context/AuthContext";
 
 import {
   getAnalysisHistoryAPI,
@@ -39,11 +40,13 @@ import {
   WandSparkles,
   TrendingUp,
   Download,
+  ShieldCheck,
 } from "lucide-react";
 
 export default function Dashboard() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
 
   const getInitialAnalysis = () => {
     try {
@@ -108,6 +111,12 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      setRecentHistory([]);
+      setHistoryLoading(false);
+      return;
+    }
+
     const fetchRecentHistory = async () => {
       try {
         setHistoryLoading(true);
@@ -125,7 +134,7 @@ export default function Dashboard() {
     };
 
     fetchRecentHistory();
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     const fetchCommunityStats = async () => {
@@ -344,7 +353,7 @@ export default function Dashboard() {
             </motion.p>
           </motion.div>
 
-          {analysis && (
+          {isAuthenticated && analysis && (
             <motion.div
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
@@ -355,7 +364,9 @@ export default function Dashboard() {
                 type="button"
                 onClick={handleExportPDF}
                 disabled={exportingPDF}
-                aria-label="Export roadmap as PDF"
+                aria-label={
+                  exportingPDF ? "Generating PDF" : "Export roadmap as PDF"
+                }
                 className="carbon-button-soft inline-flex w-fit items-center gap-2 rounded-xl border border-indigo-500/20 bg-indigo-500/20 px-4 py-2 text-sm font-semibold text-indigo-300 transition duration-200 hover:bg-indigo-500/30 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {exportingPDF ? (
@@ -384,7 +395,30 @@ export default function Dashboard() {
           )}
         </div>
 
-        {!analysis && (
+        {!isAuthenticated && (
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55 }}
+          >
+            <EmptyState
+              icon={ShieldCheck}
+              title="Sign in to view your personal dashboard"
+              description="Your dashboard will show your resume analysis, saved roadmaps, readiness score, and recent history after you sign in."
+              action={
+                <GlowButton
+                  to="/signin"
+                  variant="solid"
+                  aria-label="Sign in to view dashboard"
+                >
+                  Sign In
+                </GlowButton>
+              }
+            />
+          </motion.div>
+        )}
+
+        {isAuthenticated && !analysis && (
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
@@ -407,7 +441,7 @@ export default function Dashboard() {
           </motion.div>
         )}
 
-        {analysis && (
+        {isAuthenticated && analysis && (
           <>
             {/* TOP STATS */}
             <motion.div
@@ -1121,7 +1155,7 @@ export default function Dashboard() {
       </main>
 
       {/* Hidden PDF Export Section */}
-      {analysis && (
+      {isAuthenticated && analysis && (
         <div
           aria-hidden="true"
           style={{

@@ -45,6 +45,19 @@ vi.mock("react-hot-toast", () => ({
   },
 }));
 
+const mockAuthUser = () => {
+  localStorage.setItem("authToken", "test-token");
+
+  localStorage.setItem(
+    "authUser",
+    JSON.stringify({
+      id: "665f123456789abcdef12345",
+      name: "Test User",
+      email: "test@example.com",
+    }),
+  );
+};
+
 const mockAnalysis = {
   _id: "665f123456789abcdef12345",
   resumeName: "PrashantResume.pdf",
@@ -82,6 +95,8 @@ describe("Dashboard Page", () => {
     localStorage.clear();
     vi.clearAllMocks();
 
+    mockAuthUser();
+
     exportAnalysisPdfAPI.mockResolvedValue(true);
     exportRoadmapPDF.mockResolvedValue(true);
   });
@@ -90,10 +105,14 @@ describe("Dashboard Page", () => {
     localStorage.clear();
   });
 
-  it("renders empty dashboard state when no analysis exists", () => {
+  it("renders empty dashboard state when no analysis exists", async () => {
+    localStorage.removeItem("analysis");
+
     renderWithProviders(<Dashboard />, { route: "/dashboard" });
 
-    expect(screen.getByText(/No Resume Analysis Found/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/No Resume Analysis Found/i),
+    ).toBeInTheDocument();
 
     expect(screen.getByText(/Upload Resume/i)).toBeInTheDocument();
 
@@ -105,8 +124,8 @@ describe("Dashboard Page", () => {
   });
 
   it("renders dashboard data from localStorage", async () => {
-    localStorage.setItem("analysis", JSON.stringify(mockAnalysis));
 
+    localStorage.setItem("analysis", JSON.stringify(mockAnalysis));
     renderWithProviders(<Dashboard />, { route: "/dashboard" });
 
     expect(screen.getByText(/Your Career Dashboard/i)).toBeInTheDocument();
@@ -137,6 +156,7 @@ describe("Dashboard Page", () => {
       }),
     );
 
+    localStorage.setItem("analysis", JSON.stringify(mockAnalysis));
     renderWithProviders(<Dashboard />, { route: "/dashboard" });
 
     expect(
@@ -149,8 +169,8 @@ describe("Dashboard Page", () => {
   });
 
   it("shows Export PDF button when analysis exists", async () => {
-    localStorage.setItem("analysis", JSON.stringify(mockAnalysis));
 
+    localStorage.setItem("analysis", JSON.stringify(mockAnalysis));
     renderWithProviders(<Dashboard />, { route: "/dashboard" });
 
     expect(
@@ -162,7 +182,6 @@ describe("Dashboard Page", () => {
     const user = userEvent.setup();
 
     localStorage.setItem("analysis", JSON.stringify(mockAnalysis));
-
     renderWithProviders(<Dashboard />, { route: "/dashboard" });
 
     const exportButton = await screen.findByRole("button", {
@@ -189,7 +208,6 @@ describe("Dashboard Page", () => {
     };
 
     localStorage.setItem("analysis", JSON.stringify(localOnlyAnalysis));
-
     renderWithProviders(<Dashboard />, { route: "/dashboard" });
 
     const exportButton = await screen.findByRole("button", {
@@ -225,7 +243,6 @@ describe("Dashboard Page", () => {
     );
 
     localStorage.setItem("analysis", JSON.stringify(mockAnalysis));
-
     renderWithProviders(<Dashboard />, { route: "/dashboard" });
 
     const exportButton = await screen.findByRole("button", {
@@ -245,7 +262,6 @@ describe("Dashboard Page", () => {
 
   it("renders community insights when analysis exists", async () => {
     localStorage.setItem("analysis", JSON.stringify(mockAnalysis));
-
     renderWithProviders(<Dashboard />, { route: "/dashboard" });
 
     expect(await screen.findByText(/Community Insights/i)).toBeInTheDocument();
@@ -260,5 +276,15 @@ describe("Dashboard Page", () => {
     expect(screen.getAllByText(/System Design/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Node.js/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/68%/i).length).toBeGreaterThan(0);
+  });
+
+  it("shows sign-in prompt when user is not authenticated", async () => {
+    localStorage.clear();
+
+    renderWithProviders(<Dashboard />, { route: "/dashboard" });
+
+    expect(
+      await screen.findByText(/Sign in to view your personal dashboard/i),
+    ).toBeInTheDocument();
   });
 });

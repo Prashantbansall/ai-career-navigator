@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 
 export default function Upload() {
+  
   const benefits = [
     {
       title: "Extract Your Skills",

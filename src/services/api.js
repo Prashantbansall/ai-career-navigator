@@ -1,6 +1,16 @@
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("authToken");
+
+  return token
+    ? {
+        Authorization: `Bearer ${token}`,
+      }
+    : {};
+};
+
 const parseResponse = async (res) => {
   let data;
 
@@ -36,6 +46,9 @@ export const analyzeResumeAPI = async (file, targetRole) => {
 
     const res = await fetch(`${API_BASE_URL}/resume/analyze`, {
       method: "POST",
+      headers: {
+        ...getAuthHeaders(),
+      },
       body: formData,
     });
 
@@ -67,7 +80,12 @@ export const getAnalysisHistoryAPI = async ({
       params.append("role", role);
     }
 
-    const res = await fetch(`${API_BASE_URL}/analysis?${params.toString()}`);
+    const res = await fetch(`${API_BASE_URL}/analysis?${params.toString()}`, {
+      headers: {
+        ...getAuthHeaders(),
+      },
+    });
+
     const data = await parseResponse(res);
 
     return data?.data || data;
@@ -78,7 +96,12 @@ export const getAnalysisHistoryAPI = async ({
 
 export const getAnalysisByIdAPI = async (id) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/analysis/${id}`);
+    const res = await fetch(`${API_BASE_URL}/analysis/${id}`, {
+      headers: {
+        ...getAuthHeaders(),
+      },
+    });
+
     const data = await parseResponse(res);
 
     return data?.data?.analysis || data?.analysis || data;
@@ -91,6 +114,9 @@ export const deleteAnalysisAPI = async (id) => {
   try {
     const res = await fetch(`${API_BASE_URL}/analysis/${id}`, {
       method: "DELETE",
+      headers: {
+        ...getAuthHeaders(),
+      },
     });
 
     const data = await parseResponse(res);
@@ -112,14 +138,17 @@ export const getRolesAPI = async () => {
   }
 };
 
-// Downloads a backend-generated PDF report for a saved analysis.
 export const exportAnalysisPdfAPI = async (analysisId) => {
   if (!analysisId) {
     throw new Error("Analysis ID is required to export PDF.");
   }
 
   try {
-    const res = await fetch(`${API_BASE_URL}/analysis/${analysisId}/pdf`);
+    const res = await fetch(`${API_BASE_URL}/analysis/${analysisId}/pdf`, {
+      headers: {
+        ...getAuthHeaders(),
+      },
+    });
 
     if (!res.ok) {
       let message = "Failed to export PDF.";
@@ -174,6 +203,61 @@ export const getCommunityStatsAPI = async () => {
     return data.data || data;
   } catch (error) {
     console.error("Community stats API error:", error.message);
+    throw error;
+  }
+};
+
+export const registerUserAPI = async (userData) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/register`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(userData),
+    });
+
+    const data = await parseResponse(res);
+
+    return data;
+  } catch (error) {
+    console.error("Register API error:", error.message);
+    throw error;
+  }
+};
+
+export const loginUserAPI = async (credentials) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(credentials),
+    });
+
+    const data = await parseResponse(res);
+
+    return data;
+  } catch (error) {
+    console.error("Login API error:", error.message);
+    throw error;
+  }
+};
+
+export const getCurrentUserAPI = async (token) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/me`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const data = await parseResponse(res);
+
+    return data;
+  } catch (error) {
+    console.error("Current user API error:", error.message);
     throw error;
   }
 };

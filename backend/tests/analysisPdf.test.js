@@ -1,5 +1,3 @@
-// backend/tests/analysisPdf.test.js
-
 import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import request from "supertest";
 import mongoose from "mongoose";
@@ -11,6 +9,9 @@ vi.mock("../services/pdfReportService.js", () => ({
   generateAnalysisPdfBuffer: vi.fn(),
 }));
 
+const TEST_USER_ID = "665f123456789abcdef12345";
+const AUTH_HEADER = "Bearer test-token";
+
 describe("GET /api/analysis/:id/pdf", () => {
   let analysisId;
 
@@ -18,6 +19,7 @@ describe("GET /api/analysis/:id/pdf", () => {
     vi.clearAllMocks();
 
     const analysis = await Analysis.create({
+      userId: TEST_USER_ID,
       resumeName: "test-resume.pdf",
       targetRole: "Frontend Developer",
       roleTitle: "Frontend Developer",
@@ -75,7 +77,9 @@ describe("GET /api/analysis/:id/pdf", () => {
   });
 
   it("should export a saved analysis as a PDF", async () => {
-    const res = await request(app).get(`/api/analysis/${analysisId}/pdf`);
+    const res = await request(app)
+      .get(`/api/analysis/${analysisId}/pdf`)
+      .set("Authorization", AUTH_HEADER);
 
     expect(res.statusCode).toBe(200);
     expect(res.headers["content-type"]).toContain("application/pdf");
@@ -95,14 +99,18 @@ describe("GET /api/analysis/:id/pdf", () => {
   it("should return 404 when analysis does not exist", async () => {
     const fakeId = new mongoose.Types.ObjectId().toString();
 
-    const res = await request(app).get(`/api/analysis/${fakeId}/pdf`);
+    const res = await request(app)
+      .get(`/api/analysis/${fakeId}/pdf`)
+      .set("Authorization", AUTH_HEADER);
 
     expect(res.statusCode).toBe(404);
     expect(generateAnalysisPdfBuffer).not.toHaveBeenCalled();
   });
 
   it("should return 400 for invalid analysis id", async () => {
-    const res = await request(app).get("/api/analysis/invalid-id/pdf");
+    const res = await request(app)
+      .get("/api/analysis/invalid-id/pdf")
+      .set("Authorization", AUTH_HEADER);
 
     expect(res.statusCode).toBe(400);
     expect(generateAnalysisPdfBuffer).not.toHaveBeenCalled();

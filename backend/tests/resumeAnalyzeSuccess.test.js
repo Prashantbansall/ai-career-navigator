@@ -51,10 +51,13 @@ vi.mock("../services/resumeService.js", () => {
 
 import app from "../app.js";
 
+const AUTH_HEADER = "Bearer test-token";
+
 describe("Resume Analyze Success API", () => {
   it("should analyze resume successfully with mocked parsing and AI analysis", async () => {
     const res = await request(app)
       .post("/api/resume/analyze")
+      .set("Authorization", AUTH_HEADER)
       .field("targetRole", "SDE")
       .attach("resume", Buffer.from("fake pdf content"), {
         filename: "resume.pdf",
@@ -67,6 +70,7 @@ describe("Resume Analyze Success API", () => {
 
     const analysis = res.body.data.analysis;
 
+    expect(analysis.userId).toBe("665f123456789abcdef12345");
     expect(analysis.targetRole).toBe("SDE");
     expect(analysis.jobReadiness).toBe(67);
     expect(analysis.extractedSkills).toContain("React");

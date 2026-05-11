@@ -78,6 +78,15 @@ export default function ResumeUpload() {
   };
 
   const handleAnalyzeResume = async () => {
+    const token = localStorage.getItem("authToken");
+
+    if (!token) {
+      setError("Please sign in before analyzing your resume.");
+      toast.error("Please sign in before analyzing your resume");
+      navigate("/signin");
+      return;
+    }
+
     if (!file) {
       setError("Please upload a resume first.");
       toast.error("Please upload a resume first.");

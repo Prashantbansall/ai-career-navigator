@@ -9,7 +9,7 @@ import toast from "react-hot-toast";
 import SkeletonCard from "../components/ui/SkeletonCard";
 import ConfirmModal from "../components/ui/ConfirmModal";
 import EmptyState from "../components/ui/EmptyState";
-
+import { useAuth } from "../context/AuthContext";
 import {
   getAnalysisHistoryAPI,
   getAnalysisByIdAPI,
@@ -41,6 +41,7 @@ export default function History() {
   const [history, setHistory] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
+  const { isAuthenticated } = useAuth();
 
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
@@ -113,12 +114,21 @@ export default function History() {
   };
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      setLoading(false);
+      setHistory([]);
+      setTotal(0);
+      setPages(1);
+      setHasMore(false);
+      return;
+    }
+
     fetchHistory({
       pageToLoad: 1,
       append: false,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isAuthenticated]);
 
   const handleSearchSubmit = async (e) => {
     e.preventDefault();
@@ -478,11 +488,34 @@ export default function History() {
           </motion.div>
         )}
 
+        {!isAuthenticated && (
+          <motion.div
+            initial={{ opacity: 0, y: 22 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45 }}
+          >
+            <EmptyState
+              icon={ShieldCheck}
+              title="Sign in to view your analysis history"
+              description="Your saved resume analyses are private to your account. Sign in to view your saved roadmaps, readiness scores, and previous results."
+              action={
+                <GlowButton
+                  to="/signin"
+                  variant="solid"
+                  aria-label="Sign in to view history"
+                >
+                  Sign In
+                </GlowButton>
+              }
+            />
+          </motion.div>
+        )}
+
         {/* LOADING SKELETON */}
-        {loading && <SkeletonCard count={4} />}
+        {isAuthenticated && loading && <SkeletonCard count={4} />}
 
         {/* EMPTY DATABASE OR NO RESULT STATE */}
-        {!loading && history.length === 0 && (
+        {isAuthenticated && !loading && history.length === 0 && (
           <motion.div
             initial={{ opacity: 0, y: 22 }}
             animate={{ opacity: 1, y: 0 }}
@@ -490,11 +523,15 @@ export default function History() {
           >
             <EmptyState
               icon={filtersActive ? Search : FileText}
-              title={filtersActive ? "No Matching Results" : "No Analysis History Yet"}
+              title={
+                filtersActive
+                  ? "No Matching Results"
+                  : "No Analysis History Yet"
+              }
               description={
                 filtersActive
-                  ? "Try changing your search keyword or role filter."
-                  : "Analyze your resume first. Your saved results will appear here automatically."
+                  ? "No saved analysis matches your current search or role filter. Try changing the keyword, selecting another role, or clearing the filters."
+                  : "Your account has no saved analyses yet. Upload a resume and generate a roadmap to see your personal analysis history here."
               }
               action={
                 filtersActive ? (
@@ -502,7 +539,7 @@ export default function History() {
                     type="button"
                     onClick={clearFilters}
                     aria-label="Clear history search and role filters"
-                    className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm transition"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm transition hover:bg-white/10"
                   >
                     <X size={16} aria-hidden="true" />
                     Clear Filters
@@ -511,9 +548,9 @@ export default function History() {
                   <GlowButton
                     to="/upload"
                     variant="solid"
-                    aria-label="Analyze a resume"
+                    aria-label="Upload resume to create first analysis"
                   >
-                    Analyze Resume
+                    Upload Resume
                   </GlowButton>
                 )
               }
@@ -522,7 +559,7 @@ export default function History() {
         )}
 
         {/* HISTORY GRID */}
-        {!loading && history.length > 0 && (
+        {isAuthenticated && !loading && history.length > 0 && (
           <>
             <motion.div
               variants={staggerContainer}

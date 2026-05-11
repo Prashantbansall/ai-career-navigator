@@ -7,6 +7,7 @@ import {
 } from "../controllers/resumeController.js";
 import { uploadErrorHandler } from "../middleware/uploadErrorHandler.js";
 import { validateTargetRole } from "../middleware/validateTargetRole.js";
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -50,6 +51,7 @@ router.post(
 
 router.post(
   "/analyze",
+  protect,
   upload.single("resume"),
   uploadErrorHandler,
   validateTargetRole,

@@ -111,10 +111,18 @@ describe("Dashboard Page", () => {
     renderWithProviders(<Dashboard />, { route: "/dashboard" });
 
     expect(
-      await screen.findByText(/No Resume Analysis Found/i),
+      await screen.findByText(/Start your first analysis/i),
     ).toBeInTheDocument();
 
-    expect(screen.getByText(/Upload Resume/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /your account does not have a selected or saved resume analysis yet/i,
+      ),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByRole("link", { name: /Start your first analysis/i }),
+    ).toBeInTheDocument();
 
     expect(screen.queryByText(/Recent Analyses/i)).not.toBeInTheDocument();
 
@@ -128,7 +136,9 @@ describe("Dashboard Page", () => {
     localStorage.setItem("analysis", JSON.stringify(mockAnalysis));
     renderWithProviders(<Dashboard />, { route: "/dashboard" });
 
-    expect(screen.getByText(/Your Career Dashboard/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Test's Career Dashboard/i }),
+    ).toBeInTheDocument();
 
     expect(screen.getAllByText("SDE").length).toBeGreaterThan(0);
 
@@ -251,7 +261,9 @@ describe("Dashboard Page", () => {
 
     await user.click(exportButton);
 
-    expect(await screen.findByText(/Generating PDF/i)).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: /Generating PDF/i }),
+    ).toBeInTheDocument();
 
     resolveExport(true);
 

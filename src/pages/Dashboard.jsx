@@ -31,7 +31,6 @@ import {
   CheckCircle2,
   XCircle,
   FileText,
-  RefreshCcw,
   Clock,
   Gauge,
   History,
@@ -41,29 +40,39 @@ import {
   TrendingUp,
   Download,
   ShieldCheck,
+  RotateCcw,
 } from "lucide-react";
 
 export default function Dashboard() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
 
-  const getInitialAnalysis = () => {
+  const dashboardStorageKey = user?._id ? `analysis:${user._id}` : "analysis";
+
+  const dashboardClearedKey = user?._id
+    ? `analysisCleared:${user._id}`
+    : "analysisCleared";
+
+  const getStoredSelectedAnalysis = () => {
     try {
-      const savedAnalysis = localStorage.getItem("analysis");
+      const savedAnalysis =
+        localStorage.getItem(dashboardStorageKey) ||
+        localStorage.getItem("analysis");
 
-      return (
-        location.state?.analysis ||
-        (savedAnalysis ? JSON.parse(savedAnalysis) : null)
-      );
+      return savedAnalysis ? JSON.parse(savedAnalysis) : null;
     } catch (error) {
       console.error("Failed to parse saved analysis:", error.message);
+      localStorage.removeItem(dashboardStorageKey);
       localStorage.removeItem("analysis");
       return null;
     }
   };
 
-  const [analysis, setAnalysis] = useState(getInitialAnalysis);
+  const [analysis, setAnalysis] = useState(
+    () => location.state?.analysis || null,
+  );
+
   const [recentHistory, setRecentHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [openingId, setOpeningId] = useState("");
@@ -74,6 +83,16 @@ export default function Dashboard() {
   const [communityStats, setCommunityStats] = useState(null);
   const [communityLoading, setCommunityLoading] = useState(false);
   const [communityError, setCommunityError] = useState("");
+
+  const userDisplayName =
+    user?.name || user?.fullName || user?.email || "your account";
+
+  const userFirstName =
+    user?.name?.split(" ")?.[0] || user?.fullName?.split(" ")?.[0] || "there";
+
+  const getAnalysisId = (item) => item?._id || item?.analysisId || "";
+
+  const latestAnalysisSummary = recentHistory[0] || null;
 
   const extractedSkills = analysis?.extractedSkills || [];
   const requiredSkills = analysis?.requiredSkills || [];
@@ -112,29 +131,77 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!isAuthenticated) {
+      localStorage.removeItem("analysis");
+      setAnalysis(null);
       setRecentHistory([]);
       setHistoryLoading(false);
       return;
     }
 
-    const fetchRecentHistory = async () => {
+    const fetchAccountDashboardData = async () => {
       try {
         setHistoryLoading(true);
         setHistoryError("");
 
-        const data = await getAnalysisHistoryAPI();
+        const selectedFromNavigation = location.state?.analysis || null;
+        const wasDashboardCleared =
+          localStorage.getItem(dashboardClearedKey) === "true";
 
-        setRecentHistory((data.analyses || []).slice(0, 3));
+        if (selectedFromNavigation) {
+          localStorage.removeItem(dashboardClearedKey);
+        }
+
+        const selectedFromStorage = wasDashboardCleared
+          ? null
+          : getStoredSelectedAnalysis();
+
+        const selectedAnalysis = selectedFromNavigation || selectedFromStorage;
+
+        if (selectedAnalysis) {
+          setAnalysis(selectedAnalysis);
+          localStorage.setItem(
+            dashboardStorageKey,
+            JSON.stringify(selectedAnalysis),
+          );
+          localStorage.setItem("analysis", JSON.stringify(selectedAnalysis));
+        } else {
+          setAnalysis(null);
+        }
+
+        const data = await getAnalysisHistoryAPI({
+          page: 1,
+          limit: 3,
+        });
+
+        const latestAnalyses = data.analyses || [];
+        setRecentHistory(latestAnalyses.slice(0, 3));
+
+        if (
+          !selectedAnalysis &&
+          !wasDashboardCleared &&
+          latestAnalyses[0]?._id
+        ) {
+          const latestFullAnalysis = await getAnalysisByIdAPI(
+            latestAnalyses[0]._id,
+          );
+
+          setAnalysis(latestFullAnalysis);
+          localStorage.setItem(
+            dashboardStorageKey,
+            JSON.stringify(latestFullAnalysis),
+          );
+          localStorage.setItem("analysis", JSON.stringify(latestFullAnalysis));
+        }
       } catch (error) {
-        console.error("Failed to load recent history:", error.message);
-        setHistoryError("Unable to load recent history right now.");
+        console.error("Failed to load account dashboard:", error.message);
+        setHistoryError("Unable to load your latest dashboard data right now.");
       } finally {
         setHistoryLoading(false);
       }
     };
 
-    fetchRecentHistory();
-  }, [isAuthenticated]);
+    fetchAccountDashboardData();
+  }, [isAuthenticated, location.state]);
 
   useEffect(() => {
     const fetchCommunityStats = async () => {
@@ -214,13 +281,18 @@ export default function Dashboard() {
   };
 
   const clearAnalysis = () => {
+    localStorage.setItem(dashboardClearedKey, "true");
+    localStorage.removeItem(dashboardStorageKey);
     localStorage.removeItem("analysis");
+
     setAnalysis(null);
 
     navigate("/dashboard", {
       replace: true,
-      state: null,
+      state: {},
     });
+
+    toast.success("Dashboard selection cleared");
   };
 
   const formatDate = (date) => {
@@ -246,6 +318,11 @@ export default function Dashboard() {
 
       const selectedAnalysis = await getAnalysisByIdAPI(id);
 
+      localStorage.removeItem(dashboardClearedKey);
+      localStorage.setItem(
+        dashboardStorageKey,
+        JSON.stringify(selectedAnalysis),
+      );
       localStorage.setItem("analysis", JSON.stringify(selectedAnalysis));
       setAnalysis(selectedAnalysis);
 
@@ -266,6 +343,12 @@ export default function Dashboard() {
     } finally {
       setOpeningId("");
     }
+  };
+
+  const continueFromLatestAnalysis = async () => {
+    if (!latestAnalysisSummary?._id) return;
+
+    await openHistoryAnalysis(latestAnalysisSummary._id);
   };
 
   const requestDeleteHistoryAnalysis = (id) => {
@@ -289,12 +372,14 @@ export default function Dashboard() {
         analysis?._id === deleteTargetId ||
         analysis?.analysisId === deleteTargetId
       ) {
+        localStorage.setItem(dashboardClearedKey, "true");
+        localStorage.removeItem(dashboardStorageKey);
         localStorage.removeItem("analysis");
         setAnalysis(null);
 
         navigate("/dashboard", {
           replace: true,
-          state: null,
+          state: {},
         });
       }
 
@@ -318,13 +403,14 @@ export default function Dashboard() {
     <GradientBackground>
       <Navbar />
 
-      <main className="max-w-7xl mx-auto px-4 mt-8 md:mt-10 pb-20">
+      <main className="max-w-7xl mx-auto px-4 mt-6 md:mt-8 pb-20">
         {/* HEADER */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+        <div className="mb-7 grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
           <motion.div
             variants={staggerContainer}
             initial="hidden"
             animate="visible"
+            className="max-w-4xl"
           >
             <motion.p
               variants={fadeUp}
@@ -340,7 +426,9 @@ export default function Dashboard() {
               transition={{ duration: 0.5 }}
               className="text-2xl md:text-4xl font-bold"
             >
-              Your Career Dashboard
+              {isAuthenticated
+                ? `${userFirstName}'s Career Dashboard`
+                : "Your Career Dashboard"}
             </motion.h2>
 
             <motion.p
@@ -348,18 +436,39 @@ export default function Dashboard() {
               transition={{ duration: 0.55 }}
               className="text-sm md:text-base text-gray-400 mt-2"
             >
-              Track your skills, readiness score, gaps, AI recommendations, and
-              personalized roadmap.
+              {isAuthenticated
+                ? `Welcome back, ${userDisplayName}. This dashboard shows your saved resume analysis, readiness score, skill gaps, and latest roadmap.`
+                : "Track your skills, readiness score, gaps, AI recommendations, and personalized roadmap."}
             </motion.p>
           </motion.div>
 
           {isAuthenticated && analysis && (
             <motion.div
-              initial={{ opacity: 0, y: 18 }}
+              initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.45 }}
-              className="flex flex-wrap items-center gap-3"
+              transition={{ duration: 0.55, delay: 0.1 }}
+              className="mt-1 flex shrink-0 flex-nowrap items-center justify-start gap-2 lg:justify-end"
             >
+              {latestAnalysisSummary && (
+                <button
+                  type="button"
+                  onClick={continueFromLatestAnalysis}
+                  disabled={openingId === latestAnalysisSummary._id}
+                  aria-label="Continue from latest analysis"
+                  className="group inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full border border-emerald-300/25 bg-gradient-to-r from-emerald-500/90 via-emerald-400/85 to-teal-400/85 px-3.5 text-xs font-semibold text-white shadow-lg shadow-emerald-500/20 backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:border-emerald-200/50 hover:shadow-emerald-500/35 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+                >
+                  <span className="grid h-6 w-6 place-items-center rounded-full border border-white/20 bg-white/15 text-white shadow-inner shadow-white/10 transition group-hover:bg-white/20">
+                    <History size={14} aria-hidden="true" />
+                  </span>
+
+                  <span className="whitespace-nowrap">
+                    {openingId === latestAnalysisSummary._id
+                      ? "Opening latest..."
+                      : "Continue latest"}
+                  </span>
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={handleExportPDF}
@@ -367,29 +476,28 @@ export default function Dashboard() {
                 aria-label={
                   exportingPDF ? "Generating PDF" : "Export roadmap as PDF"
                 }
-                className="carbon-button-soft inline-flex w-fit items-center gap-2 rounded-xl border border-indigo-500/20 bg-indigo-500/20 px-4 py-2 text-sm font-semibold text-indigo-300 transition duration-200 hover:bg-indigo-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                className="group inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full border border-indigo-300/20 bg-white/[0.07] px-3.5 text-xs font-semibold text-indigo-100 shadow-lg shadow-indigo-500/10 backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:border-indigo-300/45 hover:bg-indigo-500/15 hover:shadow-indigo-500/25 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
               >
-                {exportingPDF ? (
-                  <>
-                    <span className="h-4 w-4 rounded-full border-2 border-indigo-300/30 border-t-indigo-300 animate-spin" />
-                    Generating PDF...
-                  </>
-                ) : (
-                  <>
-                    <Download size={16} aria-hidden="true" />
-                    Export PDF
-                  </>
-                )}
+                <span className="grid h-6 w-6 place-items-center rounded-full border border-indigo-300/20 bg-indigo-400/15 text-indigo-200 transition group-hover:bg-indigo-400/25">
+                  <Download size={14} aria-hidden="true" />
+                </span>
+
+                <span className="whitespace-nowrap">
+                  {exportingPDF ? "Generating..." : "Export PDF"}
+                </span>
               </button>
 
               <button
                 type="button"
                 onClick={clearAnalysis}
                 aria-label="Clear current resume analysis"
-                className="inline-flex w-fit items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/20 px-4 py-2 text-sm font-semibold text-red-300 transition duration-200 hover:bg-red-500/30"
+                className="group inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full border border-red-400/20 bg-red-500/[0.08] px-3.5 text-xs font-semibold text-red-200 shadow-lg shadow-red-500/5 backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:border-red-300/40 hover:bg-red-500/15 hover:shadow-red-500/15"
               >
-                <RefreshCcw size={16} aria-hidden="true" />
-                Clear Analysis
+                <span className="grid h-6 w-6 place-items-center rounded-full border border-red-300/20 bg-red-400/10 text-red-200 transition group-hover:bg-red-400/20">
+                  <RotateCcw size={14} aria-hidden="true" />
+                </span>
+
+                <span className="whitespace-nowrap">Clear</span>
               </button>
             </motion.div>
           )}
@@ -426,15 +534,15 @@ export default function Dashboard() {
           >
             <EmptyState
               icon={FileText}
-              title="No Resume Analysis Found"
-              description="Please upload and analyze your resume first to view your career insights, skill gaps, readiness score, and AI roadmap."
+              title="Start your first analysis"
+              description={`Hi ${userFirstName}, your account does not have a selected or saved resume analysis yet. Upload your resume to generate your first personalized roadmap.`}
               action={
                 <GlowButton
                   to="/upload"
                   variant="solid"
-                  aria-label="Upload a resume for analysis"
+                  aria-label="Start your first analysis"
                 >
-                  Upload Resume
+                  Start Analysis
                 </GlowButton>
               }
             />
@@ -1007,7 +1115,7 @@ export default function Dashboard() {
                     </div>
 
                     <p className="text-sm text-gray-400">
-                      Quickly access your latest saved resume analysis results.
+                      These are the latest analyses saved to your account.
                     </p>
                   </div>
 
@@ -1046,8 +1154,8 @@ export default function Dashboard() {
                 {!historyLoading && recentHistory.length === 0 && (
                   <EmptyState
                     icon={Clock}
-                    title="No previous analyses found yet."
-                    description="Your latest resume analyses will appear here after you upload and analyze a resume."
+                    title="No saved analyses for your account yet."
+                    description="Your latest account-based resume analyses will appear here after you upload and analyze a resume."
                     compact
                     className="bg-white/5"
                   />

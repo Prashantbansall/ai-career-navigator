@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import userEvent from "@testing-library/user-event";
 import {
   renderWithAuth,
   renderWithoutAuth,
@@ -6,7 +7,7 @@ import {
   waitFor,
 } from "../../test/test-utils";
 import Dashboard from "../Dashboard";
-import { getAnalysisHistoryAPI } from "../../services/api";
+import { getAnalysisHistoryAPI, getAnalysisByIdAPI } from "../../services/api";
 
 vi.mock("../../services/api", () => ({
   getAnalysisHistoryAPI: vi.fn(),
@@ -14,11 +15,21 @@ vi.mock("../../services/api", () => ({
   deleteAnalysisAPI: vi.fn(),
   exportAnalysisPdfAPI: vi.fn(),
   getCommunityStatsAPI: vi.fn().mockResolvedValue({
-    totalAnalyses: 0,
-    averageReadinessScore: 0,
-    mostPopularTargetRole: null,
-    mostCommonMissingSkill: null,
-    topRoadmapSkill: null,
+    totalAnalyses: 16,
+    averageReadinessScore: 63,
+    mostPopularTargetRole: {
+      role: "SDE",
+      roleTitle: "Software Development Engineer",
+      count: 8,
+    },
+    mostCommonMissingSkill: {
+      skill: "System Design",
+      count: 12,
+    },
+    topRoadmapSkill: {
+      skill: "System Design",
+      count: 20,
+    },
     popularTargetRoles: [],
     commonMissingSkills: [],
     popularRoadmapSkills: [],
@@ -41,13 +52,13 @@ const mockCurrentAnalysis = {
   resumeName: "PrashantResume.pdf",
   targetRole: "SDE",
   roleTitle: "Software Development Engineer",
-  extractedSkills: ["Java", "React"],
-  requiredSkills: ["Java", "React", "Node.js"],
-  matchedSkills: ["Java", "React"],
+  extractedSkills: ["Java", "React", "MongoDB"],
+  requiredSkills: ["Java", "React", "Node.js", "MongoDB"],
+  matchedSkills: ["Java", "React", "MongoDB"],
   missingSkills: ["Node.js"],
   roadmap: [],
-  jobReadiness: 67,
-  readinessReason: "You match 2 out of 3 required skills for SDE.",
+  jobReadiness: 73,
+  readinessReason: "You match 3 out of 4 required skills for SDE.",
   roadmapSource: "ai",
   aiProviderUsed: "gemini",
   aiModelUsed: "gemini-2.5-flash",
@@ -69,19 +80,54 @@ const mockCurrentAnalysis = {
   ],
 };
 
-describe("Dashboard auth-aware behavior", () => {
+const mockLatestAnalysisSummary = {
+  _id: "analysis-latest-1",
+  resumeName: "LatestResume.pdf",
+  targetRole: "Full Stack Developer",
+  roleTitle: "MERN Stack Developer",
+  jobReadiness: 81,
+  roadmapSource: "ai",
+  aiProviderUsed: "gemini",
+  createdAt: "2026-05-10T10:00:00.000Z",
+};
+
+const mockOlderAnalysisSummary = {
+  _id: "analysis-old-1",
+  resumeName: "OldResume.pdf",
+  targetRole: "Frontend Developer",
+  roleTitle: "React Developer",
+  jobReadiness: 74,
+  roadmapSource: "ai",
+  aiProviderUsed: "gemini",
+  createdAt: "2026-05-09T10:00:00.000Z",
+};
+
+const mockAuthUser = {
+  _id: "665f123456789abcdef12345",
+  name: "Prashant Bansal",
+  email: "prashant@example.com",
+};
+
+const userAnalysisStorageKey = `analysis:${mockAuthUser._id}`;
+const userAnalysisClearedKey = `analysisCleared:${mockAuthUser._id}`;
+
+describe("Dashboard personalized auth-aware behavior", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+
+    window.scrollTo = vi.fn();
 
     getAnalysisHistoryAPI.mockResolvedValue({
       analyses: [],
       total: 0,
       count: 0,
     });
+
+    getAnalysisByIdAPI.mockResolvedValue(mockCurrentAnalysis);
   });
 
-  it("shows sign-in dashboard message when user is not authenticated", async () => {
+  it("shows sign-in dashboard message when user is not authenticated", () => {
     renderWithoutAuth(<Dashboard />, { route: "/dashboard" });
 
     expect(
@@ -93,88 +139,246 @@ describe("Dashboard auth-aware behavior", () => {
     ).toBeInTheDocument();
 
     expect(getAnalysisHistoryAPI).not.toHaveBeenCalled();
+    expect(getAnalysisByIdAPI).not.toHaveBeenCalled();
   });
 
-  it("shows auth-aware empty dashboard state when logged-in user has no current analysis", async () => {
-    renderWithAuth(<Dashboard />, { route: "/dashboard" });
+  it("shows personalized empty dashboard state when logged-in user has no saved analysis", async () => {
+    renderWithAuth(<Dashboard />, {
+      route: "/dashboard",
+      user: mockAuthUser,
+    });
 
     expect(
-      await screen.findByText(/No Resume Analysis Found/i),
+      await screen.findByRole("heading", {
+        name: /Prashant's Career Dashboard/i,
+      }),
     ).toBeInTheDocument();
 
     expect(
-      screen.getByText(/Please upload and analyze your resume first/i),
+      await screen.findByText(/Start your first analysis/i),
     ).toBeInTheDocument();
 
     expect(
-      screen.getByRole("link", { name: /Upload a resume for analysis/i }),
+      screen.getByText(
+        /your account does not have a selected or saved resume analysis yet/i,
+      ),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByRole("link", { name: /Start your first analysis/i }),
     ).toBeInTheDocument();
 
     await waitFor(() => {
       expect(getAnalysisHistoryAPI).toHaveBeenCalledTimes(1);
     });
+
+    expect(getAnalysisByIdAPI).not.toHaveBeenCalled();
   });
 
-  it("shows recent analyses empty state when logged-in user has current analysis but no history", async () => {
-    localStorage.setItem("analysis", JSON.stringify(mockCurrentAnalysis));
-
+  it("loads current user's latest backend analysis when no selected local analysis exists", async () => {
     getAnalysisHistoryAPI.mockResolvedValueOnce({
-      analyses: [],
-      total: 0,
-      count: 0,
-    });
-
-    renderWithAuth(<Dashboard />, { route: "/dashboard" });
-
-    expect(await screen.findByText(/Recent Analyses/i)).toBeInTheDocument();
-
-    expect(
-      screen.getByText(/No previous analyses found yet/i),
-    ).toBeInTheDocument();
-
-    expect(
-      screen.getByText(/Your latest resume analyses will appear here/i),
-    ).toBeInTheDocument();
-  });
-
-  it("renders recent analyses returned from authenticated backend API", async () => {
-    localStorage.setItem("analysis", JSON.stringify(mockCurrentAnalysis));
-
-    getAnalysisHistoryAPI.mockResolvedValueOnce({
-      analyses: [
-        {
-          _id: "analysis-1",
-          resumeName: "FrontendResume.pdf",
-          targetRole: "Frontend Developer",
-          jobReadiness: 82,
-          roadmapSource: "ai",
-          aiProviderUsed: "gemini",
-          createdAt: "2026-05-10T10:00:00.000Z",
-        },
-        {
-          _id: "analysis-2",
-          resumeName: "MLResume.pdf",
-          targetRole: "AI/ML Engineer",
-          jobReadiness: 74,
-          roadmapSource: "ai",
-          aiProviderUsed: "gemini",
-          createdAt: "2026-05-09T10:00:00.000Z",
-        },
-      ],
+      analyses: [mockLatestAnalysisSummary, mockOlderAnalysisSummary],
       total: 2,
       count: 2,
     });
 
-    renderWithAuth(<Dashboard />, { route: "/dashboard" });
+    getAnalysisByIdAPI.mockResolvedValueOnce({
+      ...mockCurrentAnalysis,
+      _id: "analysis-latest-1",
+      resumeName: "LatestResume.pdf",
+      targetRole: "Full Stack Developer",
+      roleTitle: "MERN Stack Developer",
+      jobReadiness: 81,
+    });
+
+    renderWithAuth(<Dashboard />, {
+      route: "/dashboard",
+      user: mockAuthUser,
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        name: /Prashant's Career Dashboard/i,
+      }),
+    ).toBeInTheDocument();
+
+    expect(
+      (await screen.findAllByText(/Full Stack Developer/i)).length,
+    ).toBeGreaterThan(0);
+
+    expect(screen.getAllByText(/MERN Stack Developer/i).length).toBeGreaterThan(
+      0,
+    );
+
+    await waitFor(() => {
+      expect(getAnalysisHistoryAPI).toHaveBeenCalledTimes(1);
+      expect(getAnalysisByIdAPI).toHaveBeenCalledWith("analysis-latest-1");
+    });
+
+    const storedAnalysis = JSON.parse(localStorage.getItem("analysis"));
+
+    expect(storedAnalysis._id).toBe("analysis-latest-1");
+    expect(storedAnalysis.targetRole).toBe("Full Stack Developer");
+  });
+
+  it("keeps selected local analysis and still shows current user's recent analyses", async () => {
+    localStorage.setItem("analysis", JSON.stringify(mockCurrentAnalysis));
+
+    getAnalysisHistoryAPI.mockResolvedValueOnce({
+      analyses: [mockLatestAnalysisSummary, mockOlderAnalysisSummary],
+      total: 2,
+      count: 2,
+    });
+
+    renderWithAuth(<Dashboard />, {
+      route: "/dashboard",
+      user: mockAuthUser,
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        name: /Prashant's Career Dashboard/i,
+      }),
+    ).toBeInTheDocument();
+
+    expect(screen.getAllByText(/SDE/i).length).toBeGreaterThan(0);
 
     expect(await screen.findByText(/Recent Analyses/i)).toBeInTheDocument();
+    expect(screen.getByText(/LatestResume.pdf/i)).toBeInTheDocument();
+    expect(screen.getByText(/OldResume.pdf/i)).toBeInTheDocument();
 
-    expect(screen.getByText(/FrontendResume.pdf/i)).toBeInTheDocument();
-    expect(screen.getByText(/Frontend Developer/i)).toBeInTheDocument();
-
-    expect(screen.getByText(/MLResume.pdf/i)).toBeInTheDocument();
-    expect(screen.getByText(/AI\/ML Engineer/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Continue from latest analysis/i }),
+    ).toBeInTheDocument();
 
     expect(getAnalysisHistoryAPI).toHaveBeenCalledTimes(1);
+    expect(getAnalysisByIdAPI).not.toHaveBeenCalled();
+  });
+
+  it("uses Continue from latest analysis button to open the latest analysis", async () => {
+    localStorage.setItem("analysis", JSON.stringify(mockCurrentAnalysis));
+
+    getAnalysisHistoryAPI.mockResolvedValueOnce({
+      analyses: [mockLatestAnalysisSummary],
+      total: 1,
+      count: 1,
+    });
+
+    getAnalysisByIdAPI.mockResolvedValueOnce({
+      ...mockCurrentAnalysis,
+      _id: "analysis-latest-1",
+      resumeName: "LatestResume.pdf",
+      targetRole: "Full Stack Developer",
+      roleTitle: "MERN Stack Developer",
+      jobReadiness: 81,
+    });
+
+    renderWithAuth(<Dashboard />, {
+      route: "/dashboard",
+      user: mockAuthUser,
+    });
+
+    const user = userEvent.setup();
+
+    const continueButton = await screen.findByRole("button", {
+      name: /Continue from latest analysis/i,
+    });
+
+    await user.click(continueButton);
+
+    await waitFor(() => {
+      expect(getAnalysisByIdAPI).toHaveBeenCalledWith("analysis-latest-1");
+    });
+
+    expect(
+      (await screen.findAllByText(/Full Stack Developer/i)).length,
+    ).toBeGreaterThan(0);
+
+    const storedAnalysis = JSON.parse(localStorage.getItem("analysis"));
+
+    expect(storedAnalysis._id).toBe("analysis-latest-1");
+  });
+
+  it("clears selected dashboard analysis with one click and stores cleared flag", async () => {
+    const user = userEvent.setup();
+
+    localStorage.setItem(
+      userAnalysisStorageKey,
+      JSON.stringify(mockCurrentAnalysis),
+    );
+    localStorage.setItem("analysis", JSON.stringify(mockCurrentAnalysis));
+
+    getAnalysisHistoryAPI.mockResolvedValueOnce({
+      analyses: [mockLatestAnalysisSummary],
+      total: 1,
+      count: 1,
+    });
+
+    renderWithAuth(<Dashboard />, {
+      route: "/dashboard",
+      user: mockAuthUser,
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        name: /Prashant's Career Dashboard/i,
+      }),
+    ).toBeInTheDocument();
+
+    expect(screen.getAllByText(/SDE/i).length).toBeGreaterThan(0);
+
+    const clearButton = screen.getByRole("button", {
+      name: /Clear current resume analysis/i,
+    });
+
+    await user.click(clearButton);
+
+    expect(
+      await screen.findByText(/Start your first analysis/i),
+    ).toBeInTheDocument();
+
+    expect(localStorage.getItem(userAnalysisClearedKey)).toBe("true");
+    expect(localStorage.getItem(userAnalysisStorageKey)).toBeNull();
+    expect(localStorage.getItem("analysis")).toBeNull();
+  });
+
+  it("does not auto-load latest backend analysis when dashboard selection was cleared", async () => {
+    localStorage.setItem(userAnalysisClearedKey, "true");
+
+    getAnalysisHistoryAPI.mockResolvedValueOnce({
+      analyses: [mockLatestAnalysisSummary],
+      total: 1,
+      count: 1,
+    });
+
+    renderWithAuth(<Dashboard />, {
+      route: "/dashboard",
+      user: mockAuthUser,
+    });
+
+    expect(
+      await screen.findByText(/Start your first analysis/i),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByText(
+        /your account does not have a selected or saved resume analysis yet/i,
+      ),
+    ).toBeInTheDocument();
+
+    expect(screen.queryByText(/LatestResume.pdf/i)).not.toBeInTheDocument();
+
+    expect(
+      screen.queryByRole("button", {
+        name: /Continue from latest analysis/i,
+      }),
+    ).not.toBeInTheDocument();
+
+    expect(getAnalysisHistoryAPI).toHaveBeenCalledTimes(1);
+    expect(getAnalysisByIdAPI).not.toHaveBeenCalled();
+
+    expect(localStorage.getItem("analysis")).toBeNull();
+    expect(localStorage.getItem(userAnalysisStorageKey)).toBeNull();
+    expect(localStorage.getItem(userAnalysisClearedKey)).toBe("true");
   });
 });

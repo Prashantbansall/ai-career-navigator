@@ -68,7 +68,9 @@ describe("Community Dashboard Page", () => {
     renderWithProviders(<CommunityDashboard />, { route: "/community" });
 
     expect(
-      await screen.findByText(/See what other learners are preparing for/i),
+      await screen.findByText(
+        /Discover role trends, skill gaps, and roadmap demand/i,
+      ),
     ).toBeInTheDocument();
 
     expect(screen.getByText(/Total Analyses/i)).toBeInTheDocument();
@@ -80,6 +82,9 @@ describe("Community Dashboard Page", () => {
     expect(screen.getAllByText(/SDE/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/System Design/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Node.js/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Community Trend Summary/i)).toBeInTheDocument();
+    expect(screen.getByText(/Readiness Distribution/i)).toBeInTheDocument();
+    expect(screen.getByText(/Roadmap Skill Trends/i)).toBeInTheDocument();
   });
 
   it("renders empty state when there is no community data", async () => {
@@ -125,5 +130,21 @@ describe("Community Dashboard Page", () => {
     await waitFor(() => {
       expect(screen.getAllByText(/68%/i).length).toBeGreaterThan(0);
     });
+  });
+
+  it("renders analytics ranking sections with trend guidance", async () => {
+    getCommunityStatsAPI.mockResolvedValueOnce(mockCommunityStats);
+
+    renderWithProviders(<CommunityDashboard />, { route: "/community" });
+
+    expect(await screen.findByText(/Popular Roles/i)).toBeInTheDocument();
+    expect(screen.getByText(/Common Skill Gaps/i)).toBeInTheDocument();
+    expect(screen.getByText(/Roadmap Skill Trends/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Use these insights to improve your own roadmap/i),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/Role trends/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Skill gaps/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Roadmap demand/i).length).toBeGreaterThan(0);
   });
 });

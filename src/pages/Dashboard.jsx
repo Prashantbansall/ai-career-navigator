@@ -41,6 +41,15 @@ import {
   Download,
   ShieldCheck,
   RotateCcw,
+  ArrowRight,
+  UploadCloud,
+  ClipboardCheck,
+  Rocket,
+  BookOpen,
+  Layers3,
+  CheckSquare,
+  Square,
+  ListChecks,
 } from "lucide-react";
 
 export default function Dashboard() {
@@ -83,6 +92,7 @@ export default function Dashboard() {
   const [communityStats, setCommunityStats] = useState(null);
   const [communityLoading, setCommunityLoading] = useState(false);
   const [communityError, setCommunityError] = useState("");
+  const [roadmapProgress, setRoadmapProgress] = useState({});
 
   const userDisplayName =
     user?.name || user?.fullName || user?.email || "your account";
@@ -112,6 +122,79 @@ export default function Dashboard() {
   const aiProviderUsed = analysis?.aiProviderUsed || "";
   const aiModelUsed = analysis?.aiModelUsed || "";
   const promptVersion = analysis?.promptVersion || "";
+
+  const roadmapProgressKey = analysis
+    ? `roadmapProgress:${user?._id || "guest"}:${
+        getAnalysisId(analysis) ||
+        `${analysis?.resumeName || "resume"}-${analysis?.targetRole || "role"}`
+      }`
+    : "roadmapProgress:no-analysis";
+
+  const roadmapTaskFields = [
+    { key: "learn", label: "Learn" },
+    { key: "howToLearn", label: "How to Learn" },
+    { key: "resource", label: "Free Resource" },
+    { key: "project", label: "Mini Project" },
+  ];
+
+  const getRoadmapStepKey = (item, index) =>
+    `${index}-${item?.week || "week"}-${item?.skill || "skill"}`
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+
+  const getAvailableTasks = (item) =>
+    roadmapTaskFields.filter(({ key }) => Boolean(item?.[key]));
+
+  const getStepProgress = (item, index) => {
+    const stepKey = getRoadmapStepKey(item, index);
+    const tasks = getAvailableTasks(item);
+    const completedTasks = tasks.filter(
+      ({ key }) => roadmapProgress?.[stepKey]?.[key],
+    ).length;
+
+    return {
+      stepKey,
+      tasks,
+      completedTasks,
+      totalTasks: tasks.length,
+      isStarted: completedTasks > 0,
+      isCompleted: tasks.length > 0 && completedTasks === tasks.length,
+    };
+  };
+
+  const roadmapProgressSummary = aiRoadmap.reduce(
+    (summary, item, index) => {
+      const step = getStepProgress(item, index);
+
+      summary.completedTasks += step.completedTasks;
+      summary.totalTasks += step.totalTasks;
+
+      if (step.isCompleted) {
+        summary.completedWeeks += 1;
+      } else if (step.isStarted) {
+        summary.inProgressWeeks += 1;
+      }
+
+      return summary;
+    },
+    { completedTasks: 0, totalTasks: 0, completedWeeks: 0, inProgressWeeks: 0 },
+  );
+
+  const roadmapProgressPercent = roadmapProgressSummary.totalTasks
+    ? Math.round(
+        (roadmapProgressSummary.completedTasks /
+          roadmapProgressSummary.totalTasks) *
+          100,
+      )
+    : 0;
+
+  const remainingRoadmapWeeks = Math.max(
+    aiRoadmap.length - roadmapProgressSummary.completedWeeks,
+    0,
+  );
+
+  const latestSavedActivity = recentHistory[0] || null;
 
   const readinessStyle = getReadinessStyle(jobReadiness);
 
@@ -222,6 +305,22 @@ export default function Dashboard() {
 
     fetchCommunityStats();
   }, []);
+
+  useEffect(() => {
+    if (!analysis) {
+      setRoadmapProgress({});
+      return;
+    }
+
+    try {
+      const savedProgress = localStorage.getItem(roadmapProgressKey);
+      setRoadmapProgress(savedProgress ? JSON.parse(savedProgress) : {});
+    } catch (error) {
+      console.error("Failed to load roadmap progress:", error.message);
+      localStorage.removeItem(roadmapProgressKey);
+      setRoadmapProgress({});
+    }
+  }, [analysis, roadmapProgressKey]);
 
   const createPdfFileName = () => {
     const createSafeFilePart = (value = "") => {
@@ -399,108 +498,238 @@ export default function Dashboard() {
     setDeleteTargetId(null);
   };
 
+  const saveRoadmapProgress = (nextProgress) => {
+    setRoadmapProgress(nextProgress);
+
+    if (analysis) {
+      localStorage.setItem(roadmapProgressKey, JSON.stringify(nextProgress));
+    }
+  };
+
+  const toggleRoadmapTask = (stepKey, taskKey) => {
+    const nextProgress = {
+      ...roadmapProgress,
+      [stepKey]: {
+        ...(roadmapProgress[stepKey] || {}),
+        [taskKey]: !roadmapProgress?.[stepKey]?.[taskKey],
+      },
+    };
+
+    saveRoadmapProgress(nextProgress);
+  };
+
+  const toggleRoadmapWeek = (item, index) => {
+    const { stepKey, tasks, isCompleted } = getStepProgress(item, index);
+    const nextStepProgress = tasks.reduce((acc, { key }) => {
+      acc[key] = !isCompleted;
+      return acc;
+    }, {});
+
+    saveRoadmapProgress({
+      ...roadmapProgress,
+      [stepKey]: nextStepProgress,
+    });
+
+    toast.success(
+      isCompleted
+        ? "Roadmap week marked in progress"
+        : "Roadmap week completed",
+    );
+  };
+
+  const dashboardProgressWidgets = [
+    {
+      label: "Roadmap completion",
+      value: `${roadmapProgressPercent}%`,
+      helper: `${roadmapProgressSummary.completedTasks}/${roadmapProgressSummary.totalTasks || 0} roadmap tasks completed`,
+      icon: ListChecks,
+      accent: "from-indigo-500/20 to-violet-500/10",
+    },
+    {
+      label: "Completed weeks",
+      value: `${roadmapProgressSummary.completedWeeks}/${aiRoadmap.length || 0}`,
+      helper: `${remainingRoadmapWeeks} weeks still open`,
+      icon: CheckCircle2,
+      accent: "from-emerald-500/20 to-green-500/10",
+    },
+    {
+      label: "Remaining skill gaps",
+      value: missingSkills.length,
+      helper: missingSkills.length
+        ? `${missingSkills.slice(0, 2).join(", ")}${missingSkills.length > 2 ? " + more" : ""}`
+        : "No major gaps left",
+      icon: AlertTriangle,
+      accent: "from-amber-500/20 to-orange-500/10",
+    },
+    {
+      label: "Latest readiness score",
+      value: `${jobReadiness}%`,
+      helper: readinessStyle.label,
+      icon: Gauge,
+      accent: "from-cyan-500/20 to-indigo-500/10",
+    },
+    {
+      label: "Recent activity",
+      value: recentHistory.length,
+      helper: latestSavedActivity
+        ? `Last saved ${formatDate(latestSavedActivity.createdAt)}`
+        : "No saved activity yet",
+      icon: History,
+      accent: "from-slate-500/20 to-white/5",
+    },
+  ];
+
+  const dashboardActions = [
+    {
+      label: "Analyze New Resume",
+      to: "/upload",
+      icon: UploadCloud,
+      description: "Upload another resume and compare progress.",
+    },
+    {
+      label: "View History",
+      to: "/history",
+      icon: History,
+      description: "Open all saved analyses from your account.",
+    },
+    {
+      label: "Explore Community",
+      to: "/community",
+      icon: TrendingUp,
+      description: "Compare your roadmap with learner trends.",
+    },
+  ];
+
+  const renderSkillCard = ({
+    title,
+    icon: Icon,
+    iconClass,
+    skills,
+    variant,
+    emptyText,
+    helper,
+  }) => (
+    <Card className="h-full">
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div>
+          <div className="mb-2 flex items-center gap-2">
+            <Icon size={20} aria-hidden="true" className={iconClass} />
+            <h3 className="text-lg font-semibold text-white">{title}</h3>
+          </div>
+          <p className="text-sm text-gray-400">{helper}</p>
+        </div>
+
+        <span className="rounded-2xl border border-white/10 bg-white/5 px-3 py-1 text-sm font-semibold text-gray-200">
+          {skills.length}
+        </span>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {skills.length > 0 ? (
+          skills.map((skill, i) => (
+            <AnimatedBadge key={`${skill}-${i}`} variant={variant}>
+              {skill}
+            </AnimatedBadge>
+          ))
+        ) : (
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-gray-400">
+            {emptyText}
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+
   return (
     <GradientBackground>
       <Navbar />
 
-      <main className="max-w-7xl mx-auto px-4 mt-6 md:mt-8 pb-20">
-        {/* HEADER */}
-        <div className="mb-7 grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            animate="visible"
-            className="max-w-4xl"
-          >
-            <motion.p
-              variants={fadeUp}
-              transition={{ duration: 0.45 }}
-              className="inline-flex items-center gap-2 text-sm text-indigo-300 mb-2"
-            >
-              <Sparkles size={16} aria-hidden="true" />
-              AI-powered career insights
-            </motion.p>
-
-            <motion.h2
-              variants={fadeUp}
-              transition={{ duration: 0.5 }}
-              className="text-2xl md:text-4xl font-bold"
-            >
-              {isAuthenticated
-                ? `${userFirstName}'s Career Dashboard`
-                : "Your Career Dashboard"}
-            </motion.h2>
-
-            <motion.p
-              variants={fadeUp}
-              transition={{ duration: 0.55 }}
-              className="text-sm md:text-base text-gray-400 mt-2"
-            >
-              {isAuthenticated
-                ? `Welcome back, ${userDisplayName}. This dashboard shows your saved resume analysis, readiness score, skill gaps, and latest roadmap.`
-                : "Track your skills, readiness score, gaps, AI recommendations, and personalized roadmap."}
-            </motion.p>
-          </motion.div>
-
-          {isAuthenticated && analysis && (
+      <main className="mx-auto max-w-7xl px-4 pb-20 pt-6 sm:px-6 md:pt-8">
+        <div className="mb-8 overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 shadow-2xl shadow-indigo-950/20 backdrop-blur-xl md:p-7 lg:p-8">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
             <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.55, delay: 0.1 }}
-              className="mt-1 flex shrink-0 flex-nowrap items-center justify-start gap-2 lg:justify-end"
+              variants={staggerContainer}
+              initial="hidden"
+              animate="visible"
+              className="max-w-4xl"
             >
-              {latestAnalysisSummary && (
-                <button
-                  type="button"
-                  onClick={continueFromLatestAnalysis}
-                  disabled={openingId === latestAnalysisSummary._id}
-                  aria-label="Continue from latest analysis"
-                  className="group inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full border border-emerald-300/25 bg-gradient-to-r from-emerald-500/90 via-emerald-400/85 to-teal-400/85 px-3.5 text-xs font-semibold text-white shadow-lg shadow-emerald-500/20 backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:border-emerald-200/50 hover:shadow-emerald-500/35 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
-                >
-                  <span className="grid h-6 w-6 place-items-center rounded-full border border-white/20 bg-white/15 text-white shadow-inner shadow-white/10 transition group-hover:bg-white/20">
-                    <History size={14} aria-hidden="true" />
-                  </span>
+              <motion.p
+                variants={fadeUp}
+                transition={{ duration: 0.45 }}
+                className="mb-3 inline-flex items-center gap-2 rounded-full border border-indigo-300/20 bg-indigo-500/10 px-3 py-1.5 text-sm font-medium text-indigo-200"
+              >
+                <Sparkles size={16} aria-hidden="true" />
+                Main SaaS workspace
+              </motion.p>
 
-                  <span className="whitespace-nowrap">
+              <motion.h2
+                variants={fadeUp}
+                transition={{ duration: 0.5 }}
+                className="text-3xl font-bold tracking-tight text-white md:text-5xl"
+              >
+                {isAuthenticated
+                  ? `${userFirstName}'s Career Dashboard`
+                  : "Your Career Dashboard"}
+              </motion.h2>
+
+              <motion.p
+                variants={fadeUp}
+                transition={{ duration: 0.55 }}
+                className="mt-3 max-w-3xl text-sm leading-relaxed text-gray-400 md:text-base"
+              >
+                {isAuthenticated
+                  ? `Welcome back, ${userDisplayName}. Review your selected analysis, readiness score, skill gaps, roadmap, and recent activity in one place.`
+                  : "Track resume skills, readiness score, gaps, AI recommendations, and your week-by-week roadmap."}
+              </motion.p>
+            </motion.div>
+
+            {isAuthenticated && analysis && (
+              <motion.div
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.55, delay: 0.1 }}
+                className="grid gap-2 sm:grid-cols-3 lg:min-w-[430px] lg:grid-cols-1"
+              >
+                {latestAnalysisSummary && (
+                  <button
+                    type="button"
+                    onClick={continueFromLatestAnalysis}
+                    disabled={openingId === latestAnalysisSummary._id}
+                    aria-label="Continue from latest analysis"
+                    className="group inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-emerald-300/25 bg-gradient-to-r from-emerald-500/90 via-emerald-400/85 to-teal-400/85 px-4 text-sm font-semibold text-white shadow-lg shadow-emerald-500/20 transition duration-200 hover:-translate-y-0.5 hover:border-emerald-200/50 hover:shadow-emerald-500/35 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+                  >
+                    <History size={16} aria-hidden="true" />
                     {openingId === latestAnalysisSummary._id
                       ? "Opening latest..."
-                      : "Continue latest"}
-                  </span>
+                      : "Continue Latest"}
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleExportPDF}
+                  disabled={exportingPDF}
+                  aria-label={
+                    exportingPDF ? "Generating PDF" : "Export roadmap as PDF"
+                  }
+                  className="group inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-indigo-300/20 bg-white/[0.07] px-4 text-sm font-semibold text-indigo-100 shadow-lg shadow-indigo-500/10 backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:border-indigo-300/45 hover:bg-indigo-500/15 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+                >
+                  <Download size={16} aria-hidden="true" />
+                  {exportingPDF ? "Generating PDF..." : "Export PDF"}
                 </button>
-              )}
 
-              <button
-                type="button"
-                onClick={handleExportPDF}
-                disabled={exportingPDF}
-                aria-label={
-                  exportingPDF ? "Generating PDF" : "Export roadmap as PDF"
-                }
-                className="group inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full border border-indigo-300/20 bg-white/[0.07] px-3.5 text-xs font-semibold text-indigo-100 shadow-lg shadow-indigo-500/10 backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:border-indigo-300/45 hover:bg-indigo-500/15 hover:shadow-indigo-500/25 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
-              >
-                <span className="grid h-6 w-6 place-items-center rounded-full border border-indigo-300/20 bg-indigo-400/15 text-indigo-200 transition group-hover:bg-indigo-400/25">
-                  <Download size={14} aria-hidden="true" />
-                </span>
-
-                <span className="whitespace-nowrap">
-                  {exportingPDF ? "Generating..." : "Export PDF"}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={clearAnalysis}
-                aria-label="Clear current resume analysis"
-                className="group inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full border border-red-400/20 bg-red-500/[0.08] px-3.5 text-xs font-semibold text-red-200 shadow-lg shadow-red-500/5 backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:border-red-300/40 hover:bg-red-500/15 hover:shadow-red-500/15"
-              >
-                <span className="grid h-6 w-6 place-items-center rounded-full border border-red-300/20 bg-red-400/10 text-red-200 transition group-hover:bg-red-400/20">
-                  <RotateCcw size={14} aria-hidden="true" />
-                </span>
-
-                <span className="whitespace-nowrap">Clear</span>
-              </button>
-            </motion.div>
-          )}
+                <button
+                  type="button"
+                  onClick={clearAnalysis}
+                  aria-label="Clear current resume analysis"
+                  className="group inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-red-400/20 bg-red-500/[0.08] px-4 text-sm font-semibold text-red-200 shadow-lg shadow-red-500/5 transition duration-200 hover:-translate-y-0.5 hover:border-red-300/40 hover:bg-red-500/15"
+                >
+                  <RotateCcw size={16} aria-hidden="true" />
+                  Clear Selection
+                </button>
+              </motion.div>
+            )}
+          </div>
         </div>
 
         {!isAuthenticated && (
@@ -531,6 +760,7 @@ export default function Dashboard() {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55 }}
+            className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]"
           >
             <EmptyState
               icon={FileText}
@@ -542,70 +772,114 @@ export default function Dashboard() {
                   variant="solid"
                   aria-label="Start your first analysis"
                 >
-                  Start Analysis
+                  Upload Resume
                 </GlowButton>
               }
             />
+
+            <Card className="h-full">
+              <div className="mb-5 flex items-center gap-3">
+                <div className="grid h-12 w-12 place-items-center rounded-2xl border border-indigo-400/20 bg-indigo-500/15 text-indigo-200">
+                  <ClipboardCheck size={24} aria-hidden="true" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">
+                    What appears here?
+                  </h3>
+                  <p className="text-sm text-gray-400">
+                    Your dashboard becomes active after analysis.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {[
+                  "Readiness score with clear reasoning",
+                  "Matched and missing skills",
+                  "Week-by-week learning roadmap",
+                  "Saved account history",
+                ].map((item) => (
+                  <div
+                    key={item}
+                    className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-gray-300"
+                  >
+                    <CheckCircle2
+                      size={18}
+                      aria-hidden="true"
+                      className="mt-0.5 shrink-0 text-green-300"
+                    />
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </Card>
           </motion.div>
         )}
 
         {isAuthenticated && analysis && (
           <>
-            {/* TOP STATS */}
-            <motion.div
+            <motion.section
               variants={staggerContainer}
               initial="hidden"
               animate="visible"
-              className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"
+              className="mb-8 grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]"
             >
               <motion.div variants={fadeUp} transition={{ duration: 0.45 }}>
-                <Card>
-                  <div className="flex items-start justify-between gap-4">
+                <Card className="h-full overflow-hidden">
+                  <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
                     <div>
-                      <div className="flex items-center gap-2 text-indigo-300 mb-2">
-                        <Target size={18} aria-hidden="true" />
-                        <h3 className="text-lg font-semibold text-indigo-400">
-                          Target Role
-                        </h3>
-                      </div>
-
-                      <p className="text-2xl font-bold">{targetRole}</p>
-                      <p className="text-sm text-gray-400 mt-1">{roleTitle}</p>
-                    </div>
-
-                    <div className="w-12 h-12 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-300">
-                      <Target size={24} aria-hidden="true" />
-                    </div>
-                  </div>
-                </Card>
-              </motion.div>
-
-              <motion.div variants={fadeUp} transition={{ duration: 0.5 }}>
-                <Card>
-                  <div className="w-full">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <TrendingUp
-                          size={18}
-                          aria-hidden="true"
-                          className={readinessStyle.text}
-                        />
-                        <h3
-                          className={`text-lg font-semibold ${readinessStyle.text}`}
+                      <div className="mb-3 flex flex-wrap items-center gap-2">
+                        <AnimatedBadge
+                          variant={
+                            roadmapSource === "ai" ? "success" : "warning"
+                          }
                         >
-                          Job Readiness
-                        </h3>
+                          {roadmapSource === "ai"
+                            ? `${aiProviderUsed || "AI"} Powered`
+                            : "Fallback Mode"}
+                        </AnimatedBadge>
+
+                        <AnimatedBadge>
+                          <Target size={13} aria-hidden="true" />
+                          {targetRole}
+                        </AnimatedBadge>
                       </div>
 
-                      <AnimatedBadge variant={readinessStyle.badgeVariant}>
+                      <h3 className="text-2xl font-bold text-white md:text-3xl">
+                        Current Analysis Summary
+                      </h3>
+
+                      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-400 md:text-base">
+                        You are preparing for{" "}
+                        <span className="font-semibold text-indigo-200">
+                          {roleTitle || targetRole}
+                        </span>
+                        . Focus first on the highlighted skill gaps, then follow
+                        the roadmap below week by week.
+                      </p>
+                    </div>
+
+                    <div className="rounded-3xl border border-white/10 bg-slate-950/35 p-5 text-center shadow-inner shadow-black/20 md:min-w-44">
+                      <p className="text-sm font-medium text-gray-400">
+                        Readiness
+                      </p>
+                      <p
+                        className={`mt-2 text-5xl font-black ${readinessStyle.text}`}
+                      >
+                        {jobReadiness}%
+                      </p>
+                      <AnimatedBadge
+                        variant={readinessStyle.badgeVariant}
+                        className="mt-4"
+                      >
                         {readinessStyle.label}
                       </AnimatedBadge>
                     </div>
+                  </div>
 
-                    <p className="text-3xl font-bold mt-2">{jobReadiness}%</p>
-
+                  <div className="mt-6">
                     <div
-                      className="mt-4 w-full bg-gray-700 rounded-full h-3 overflow-hidden"
+                      className="h-3 w-full overflow-hidden rounded-full bg-slate-800"
                       role="progressbar"
                       aria-label="Job readiness score"
                       aria-valuenow={jobReadiness}
@@ -617,11 +891,11 @@ export default function Dashboard() {
                         animate={{ width: `${jobReadiness}%` }}
                         transition={{ duration: 0.9, delay: 0.2 }}
                         className={`${readinessStyle.bg} h-3 rounded-full`}
-                      ></motion.div>
+                      />
                     </div>
 
                     {readinessReason && (
-                      <p className="text-sm text-gray-400 mt-3">
+                      <p className="mt-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm leading-relaxed text-gray-300">
                         {readinessReason}
                       </p>
                     )}
@@ -629,50 +903,141 @@ export default function Dashboard() {
                 </Card>
               </motion.div>
 
-              <motion.div variants={fadeUp} transition={{ duration: 0.55 }}>
-                <Card>
-                  <div className="flex items-start justify-between gap-4">
+              <motion.div variants={fadeUp} transition={{ duration: 0.5 }}>
+                <Card className="h-full">
+                  <div className="mb-5 flex items-center gap-3">
+                    <div className="grid h-12 w-12 place-items-center rounded-2xl border border-green-400/20 bg-green-500/15 text-green-200">
+                      <Rocket size={24} aria-hidden="true" />
+                    </div>
                     <div>
-                      <div className="flex items-center gap-2 text-red-300 mb-2">
-                        <AlertTriangle size={18} aria-hidden="true" />
-                        <h3 className="text-lg font-semibold text-red-400">
-                          Skill Gaps
-                        </h3>
-                      </div>
-
-                      <p className="text-3xl font-bold">
-                        {missingSkills.length}
-                      </p>
-
-                      <p className="text-sm text-gray-400 mt-1">
-                        Out of {requiredSkills.length} required skills
+                      <h3 className="text-lg font-semibold text-white">
+                        Next Best Actions
+                      </h3>
+                      <p className="text-sm text-gray-400">
+                        Move from analysis to progress.
                       </p>
                     </div>
+                  </div>
 
-                    <div className="w-12 h-12 rounded-xl bg-red-500/20 border border-red-500/30 flex items-center justify-center text-red-300">
-                      <AlertTriangle size={24} aria-hidden="true" />
-                    </div>
+                  <div className="space-y-3">
+                    {dashboardActions.map(
+                      ({ label, to, icon: Icon, description }) => (
+                        <Link
+                          key={label}
+                          to={to}
+                          className="group flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:-translate-y-0.5 hover:border-indigo-400/40 hover:bg-white/10"
+                        >
+                          <span className="flex items-start gap-3">
+                            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-indigo-300/20 bg-indigo-500/15 text-indigo-200">
+                              <Icon size={18} aria-hidden="true" />
+                            </span>
+                            <span>
+                              <span className="block font-semibold text-white">
+                                {label}
+                              </span>
+                              <span className="mt-0.5 block text-xs text-gray-400">
+                                {description}
+                              </span>
+                            </span>
+                          </span>
+                          <ArrowRight
+                            size={17}
+                            aria-hidden="true"
+                            className="shrink-0 text-gray-500 transition group-hover:translate-x-1 group-hover:text-indigo-200"
+                          />
+                        </Link>
+                      ),
+                    )}
                   </div>
                 </Card>
               </motion.div>
-            </motion.div>
+            </motion.section>
 
-            {/* COMMUNITY INSIGHTS */}
-            <motion.div
+            <motion.section
+              variants={staggerContainer}
+              initial="hidden"
+              animate="visible"
+              className="mb-8"
+              aria-labelledby="dashboard-progress-widgets"
+            >
+              <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-[0.22em] text-indigo-300">
+                    Progress Widgets
+                  </p>
+                  <h3
+                    id="dashboard-progress-widgets"
+                    className="mt-1 text-2xl font-bold text-white"
+                  >
+                    Dashboard Progress Snapshot
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-400">
+                    Track readiness, roadmap progress, skill gaps, and recent
+                    saved activity in one place.
+                  </p>
+                </div>
+
+                <AnimatedBadge variant="success">
+                  <TrendingUp size={13} aria-hidden="true" />
+                  {roadmapProgressPercent}% roadmap complete
+                </AnimatedBadge>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+                {dashboardProgressWidgets.map(
+                  ({ label, value, helper, icon: Icon, accent }, index) => (
+                    <motion.div
+                      key={label}
+                      variants={fadeUp}
+                      transition={{ duration: 0.45 + index * 0.05 }}
+                    >
+                      <Card className="group relative h-full overflow-hidden p-5 md:p-5">
+                        <div
+                          aria-hidden="true"
+                          className={`absolute inset-0 bg-gradient-to-br ${accent} opacity-70 transition duration-200 group-hover:opacity-100`}
+                        />
+                        <div className="relative z-10">
+                          <div className="mb-5 flex items-center justify-between gap-4">
+                            <div className="grid h-11 w-11 place-items-center rounded-2xl border border-white/10 bg-slate-950/35 text-indigo-200 shadow-inner shadow-white/5">
+                              <Icon size={21} aria-hidden="true" />
+                            </div>
+                            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                              Live
+                            </span>
+                          </div>
+
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
+                            {label}
+                          </p>
+                          <p className="mt-2 text-3xl font-black text-white">
+                            {value}
+                          </p>
+                          <p className="mt-2 line-clamp-2 min-h-10 text-sm leading-relaxed text-gray-400">
+                            {helper}
+                          </p>
+                        </div>
+                      </Card>
+                    </motion.div>
+                  ),
+                )}
+              </div>
+            </motion.section>
+
+            <motion.section
               initial={{ opacity: 0, y: 22 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.55 }}
+              className="mb-8"
             >
-              <Card className="mb-8">
+              <Card>
                 <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div>
                     <div className="mb-2 flex items-center gap-2 text-indigo-300">
                       <TrendingUp size={20} aria-hidden="true" />
-                      <h3 className="text-lg font-semibold text-indigo-400">
+                      <h3 className="text-lg font-semibold text-white">
                         Community Insights
                       </h3>
                     </div>
-
                     <p className="text-sm text-gray-400">
                       See how your roadmap compares with learning trends from
                       other resume analyses.
@@ -681,9 +1046,10 @@ export default function Dashboard() {
 
                   <Link
                     to="/community"
-                    className="inline-flex w-fit items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:-translate-y-0.5 hover:border-indigo-400/40 hover:bg-white/10"
+                    className="inline-flex w-fit items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:-translate-y-0.5 hover:border-indigo-400/40 hover:bg-white/10"
                   >
                     View Community
+                    <ArrowRight size={16} aria-hidden="true" />
                   </Link>
                 </div>
 
@@ -711,87 +1077,74 @@ export default function Dashboard() {
 
                 {!communityLoading && !communityError && communityStats && (
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:-translate-y-1 hover:border-indigo-400/40 hover:bg-white/10">
-                      <p className="text-xs uppercase tracking-wide text-gray-500">
-                        Popular Role
-                      </p>
-                      <h4 className="mt-2 text-lg font-bold text-white">
-                        {communityStats.mostPopularTargetRole?.role ||
-                          "No data"}
-                      </h4>
-                      <p className="mt-1 text-sm text-gray-400">
-                        {communityStats.mostPopularTargetRole?.roleTitle ||
-                          "Most selected target role"}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:-translate-y-1 hover:border-red-400/40 hover:bg-white/10">
-                      <p className="text-xs uppercase tracking-wide text-gray-500">
-                        Common Gap
-                      </p>
-                      <h4 className="mt-2 text-lg font-bold text-white">
-                        {communityStats.mostCommonMissingSkill?.skill ||
-                          "No data"}
-                      </h4>
-                      <p className="mt-1 text-sm text-gray-400">
-                        {communityStats.mostCommonMissingSkill
+                    {[
+                      {
+                        label: "Popular Role",
+                        value:
+                          communityStats.mostPopularTargetRole?.role ||
+                          "No data",
+                        helper:
+                          communityStats.mostPopularTargetRole?.roleTitle ||
+                          "Most selected target role",
+                      },
+                      {
+                        label: "Common Gap",
+                        value:
+                          communityStats.mostCommonMissingSkill?.skill ||
+                          "No data",
+                        helper: communityStats.mostCommonMissingSkill
                           ? `${communityStats.mostCommonMissingSkill.count} learners missing this`
-                          : "Most common missing skill"}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:-translate-y-1 hover:border-green-400/40 hover:bg-white/10">
-                      <p className="text-xs uppercase tracking-wide text-gray-500">
-                        Avg Readiness
-                      </p>
-                      <h4 className="mt-2 text-lg font-bold text-white">
-                        {communityStats.averageReadinessScore || 0}%
-                      </h4>
-                      <p className="mt-1 text-sm text-gray-400">
-                        Average score across analyses
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:-translate-y-1 hover:border-cyan-400/40 hover:bg-white/10">
-                      <p className="text-xs uppercase tracking-wide text-gray-500">
-                        Top Roadmap Skill
-                      </p>
-                      <h4 className="mt-2 text-lg font-bold text-white">
-                        {communityStats.topRoadmapSkill?.skill || "No data"}
-                      </h4>
-                      <p className="mt-1 text-sm text-gray-400">
-                        {communityStats.topRoadmapSkill
+                          : "Most common missing skill",
+                      },
+                      {
+                        label: "Avg Readiness",
+                        value: `${communityStats.averageReadinessScore || 0}%`,
+                        helper: "Average score across analyses",
+                      },
+                      {
+                        label: "Top Roadmap Skill",
+                        value:
+                          communityStats.topRoadmapSkill?.skill || "No data",
+                        helper: communityStats.topRoadmapSkill
                           ? `${communityStats.topRoadmapSkill.count} roadmap mentions`
-                          : "Most recommended skill"}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:-translate-y-1 hover:border-purple-400/40 hover:bg-white/10">
-                      <p className="text-xs uppercase tracking-wide text-gray-500">
-                        Total Analyses
-                      </p>
-                      <h4 className="mt-2 text-lg font-bold text-white">
-                        {communityStats.totalAnalyses || 0}
-                      </h4>
-                      <p className="mt-1 text-sm text-gray-400">
-                        Saved resume analyses
-                      </p>
-                    </div>
+                          : "Most recommended skill",
+                      },
+                      {
+                        label: "Total Analyses",
+                        value: communityStats.totalAnalyses || 0,
+                        helper: "Saved resume analyses",
+                      },
+                    ].map((item) => (
+                      <div
+                        key={item.label}
+                        className="rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:-translate-y-1 hover:border-indigo-400/40 hover:bg-white/10"
+                      >
+                        <p className="text-xs uppercase tracking-wide text-gray-500">
+                          {item.label}
+                        </p>
+                        <h4 className="mt-2 text-lg font-bold text-white">
+                          {item.value}
+                        </h4>
+                        <p className="mt-1 text-sm text-gray-400">
+                          {item.helper}
+                        </p>
+                      </div>
+                    ))}
                   </div>
                 )}
               </Card>
-            </motion.div>
+            </motion.section>
 
-            {/* ROADMAP SOURCE */}
-            <motion.div
+            <motion.section
               initial={{ opacity: 0, y: 22 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.55 }}
+              className="mb-8"
             >
-              <Card className="mb-8">
-                <div>
-                  <div className="flex items-center justify-between gap-3 mb-3">
-                    <div className="flex items-center gap-2 min-w-0">
+              <Card>
+                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <div className="mb-2 flex items-center gap-2 text-indigo-300">
                       <Brain
                         size={20}
                         aria-hidden="true"
@@ -801,319 +1154,416 @@ export default function Dashboard() {
                             : "text-yellow-300"
                         }
                       />
-
-                      <h3 className="text-lg font-semibold text-indigo-400 truncate">
+                      <h3 className="text-lg font-semibold text-white">
                         Roadmap Source
                       </h3>
                     </div>
-
-                    <AnimatedBadge
-                      variant={roadmapSource === "ai" ? "success" : "warning"}
-                      className="shrink-0"
-                    >
+                    <p className="max-w-3xl text-sm text-gray-400">
                       {roadmapSource === "ai"
-                        ? `${aiProviderUsed || "AI"} Powered`
-                        : "Fallback Mode"}
-                    </AnimatedBadge>
+                        ? `This roadmap was generated using ${aiProviderUsed || "AI"}.`
+                        : "This roadmap is using the rule-based fallback engine."}
+                    </p>
+                    {roadmapSource === "ai" && (
+                      <p className="mt-2 text-xs text-gray-500">
+                        Provider: {aiProviderUsed || "AI"} • Model:{" "}
+                        {aiModelUsed || "Unknown"} • Prompt:{" "}
+                        {promptVersion || "Unknown"}
+                      </p>
+                    )}
+                    {aiError && (
+                      <p
+                        role="alert"
+                        aria-live="assertive"
+                        className="mt-3 rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-3 text-sm text-yellow-300"
+                      >
+                        {aiError}
+                      </p>
+                    )}
                   </div>
 
-                  <p className="text-sm text-gray-400 mt-2">
+                  <AnimatedBadge
+                    variant={roadmapSource === "ai" ? "success" : "warning"}
+                    className="shrink-0"
+                  >
                     {roadmapSource === "ai"
-                      ? `This roadmap was generated using ${
-                          aiProviderUsed || "AI"
-                        }.`
-                      : "This roadmap is using the rule-based fallback engine."}
-                  </p>
-
-                  {roadmapSource === "ai" && (
-                    <p className="text-xs text-gray-500 mt-2">
-                      Provider: {aiProviderUsed || "AI"} • Model:{" "}
-                      {aiModelUsed || "Unknown"} • Prompt:{" "}
-                      {promptVersion || "Unknown"}
-                    </p>
-                  )}
-
-                  {aiError && (
-                    <p
-                      role="alert"
-                      aria-live="assertive"
-                      className="text-sm text-yellow-300 mt-2"
-                    >
-                      {aiError}
-                    </p>
-                  )}
+                      ? `${aiProviderUsed || "AI"} Powered`
+                      : "Fallback Mode"}
+                  </AnimatedBadge>
                 </div>
               </Card>
-            </motion.div>
+            </motion.section>
 
-            {/* SKILLS */}
-            <motion.div
+            <motion.section
               variants={staggerContainer}
               initial="hidden"
               animate="visible"
-              className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+              className="grid grid-cols-1 gap-6 lg:grid-cols-3"
             >
               <motion.div variants={fadeUp} transition={{ duration: 0.45 }}>
-                <Card>
-                  <div className="flex items-center gap-2 mb-4">
-                    <FileText
-                      size={20}
-                      aria-hidden="true"
-                      className="text-indigo-300"
-                    />
-                    <h3 className="text-lg font-semibold text-indigo-400">
-                      Extracted Skills
-                    </h3>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {extractedSkills.length > 0 ? (
-                      extractedSkills.map((skill, i) => (
-                        <AnimatedBadge key={i}>{skill}</AnimatedBadge>
-                      ))
-                    ) : (
-                      <p className="text-sm text-gray-400">
-                        No skills detected.
-                      </p>
-                    )}
-                  </div>
-                </Card>
+                {renderSkillCard({
+                  title: "Extracted Skills",
+                  icon: FileText,
+                  iconClass: "text-indigo-300",
+                  skills: extractedSkills,
+                  helper: "Skills found in the uploaded resume.",
+                  emptyText:
+                    "No skills detected. Try uploading a more detailed resume.",
+                })}
               </motion.div>
 
               <motion.div variants={fadeUp} transition={{ duration: 0.5 }}>
-                <Card>
-                  <div className="flex items-center gap-2 mb-4">
-                    <CheckCircle2
-                      size={20}
-                      aria-hidden="true"
-                      className="text-green-300"
-                    />
-                    <h3 className="text-lg font-semibold text-green-400">
-                      Matched Skills
-                    </h3>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {matchedSkills.length > 0 ? (
-                      matchedSkills.map((skill, i) => (
-                        <AnimatedBadge key={i} variant="success">
-                          {skill}
-                        </AnimatedBadge>
-                      ))
-                    ) : (
-                      <p className="text-sm text-gray-400">
-                        No matched skills found.
-                      </p>
-                    )}
-                  </div>
-                </Card>
+                {renderSkillCard({
+                  title: "Matched Skills",
+                  icon: CheckCircle2,
+                  iconClass: "text-green-300",
+                  skills: matchedSkills,
+                  variant: "success",
+                  helper: "Strengths already matching the target role.",
+                  emptyText: "No matched skills found yet.",
+                })}
               </motion.div>
 
               <motion.div variants={fadeUp} transition={{ duration: 0.55 }}>
-                <Card>
-                  <div className="flex items-center gap-2 mb-4">
-                    <XCircle
-                      size={20}
-                      aria-hidden="true"
-                      className="text-red-300"
-                    />
-                    <h3 className="text-lg font-semibold text-red-400">
-                      Missing Skills
-                    </h3>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {missingSkills.length > 0 ? (
-                      missingSkills.map((skill, i) => (
-                        <AnimatedBadge key={i} variant="danger">
-                          {skill}
-                        </AnimatedBadge>
-                      ))
-                    ) : (
-                      <p className="text-sm text-gray-400">
-                        Great! No major skill gaps found.
-                      </p>
-                    )}
-                  </div>
-                </Card>
+                {renderSkillCard({
+                  title: "Missing Skills",
+                  icon: XCircle,
+                  iconClass: "text-red-300",
+                  skills: missingSkills,
+                  variant: "danger",
+                  helper: "Skills to prioritize in your learning plan.",
+                  emptyText: "Great! No major skill gaps found.",
+                })}
               </motion.div>
-            </motion.div>
+            </motion.section>
 
-            {/* AI SUMMARY */}
             {aiEnabled && (
-              <motion.div
+              <motion.section
                 initial={{ opacity: 0, y: 22 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.65 }}
               >
                 <Card className="mt-8 md:mt-10">
-                  <div className="flex items-center gap-2 mb-3">
-                    <WandSparkles
-                      size={20}
-                      aria-hidden="true"
-                      className="text-indigo-300"
-                    />
-                    <h3 className="text-lg font-semibold text-indigo-400">
-                      AI Career Summary
-                    </h3>
+                  <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <div className="mb-2 flex items-center gap-2">
+                        <WandSparkles
+                          size={20}
+                          aria-hidden="true"
+                          className="text-indigo-300"
+                        />
+                        <h3 className="text-lg font-semibold text-white">
+                          AI Career Summary
+                        </h3>
+                      </div>
+                      <p className="text-sm leading-relaxed text-gray-400 md:text-base">
+                        {aiSummary}
+                      </p>
+                    </div>
                   </div>
 
-                  <p className="text-sm md:text-base text-gray-400">
-                    {aiSummary}
-                  </p>
-
                   {aiRecommendations.length > 0 && (
-                    <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                       {aiRecommendations.map((recommendation, index) => (
                         <motion.div
                           key={index}
                           initial={{ opacity: 0, y: 16 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: index * 0.1 }}
-                          className="premium-inner-card rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-gray-400 transition hover:bg-white/10 md:text-base"
+                          className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-4 text-sm leading-relaxed text-gray-300 transition duration-200 before:pointer-events-none before:absolute before:left-0 before:top-0 before:h-16 before:w-16 before:rounded-br-full before:bg-indigo-400/0 before:blur-xl before:transition before:duration-200 after:pointer-events-none after:absolute after:bottom-0 after:right-0 after:h-16 after:w-16 after:rounded-tl-full after:bg-emerald-400/0 after:blur-xl after:transition after:duration-200 hover:-translate-y-1 hover:border-indigo-400/45 hover:shadow-[0_18px_55px_rgba(99,102,241,0.18)] hover:before:bg-indigo-400/25 hover:after:bg-emerald-400/20 md:text-base"
                         >
-                          <span className="text-indigo-300 font-semibold">
-                            {index + 1}.
-                          </span>{" "}
+                          <span className="mb-3 grid h-8 w-8 place-items-center rounded-xl border border-indigo-300/20 bg-indigo-500/15 text-sm font-bold text-indigo-200">
+                            {index + 1}
+                          </span>
                           {recommendation}
                         </motion.div>
                       ))}
                     </div>
                   )}
                 </Card>
-              </motion.div>
+              </motion.section>
             )}
 
-            {/* ROADMAP TIMELINE */}
-            <motion.div
+            <motion.section
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.75 }}
             >
               <Card className="mt-8 md:mt-10">
-                <div className="flex items-center gap-2 mb-6">
-                  <Route
-                    size={20}
-                    aria-hidden="true"
-                    className="text-green-300"
-                  />
-                  <h3 className="text-lg font-semibold text-green-400">
-                    Week-by-Week Roadmap
-                  </h3>
+                <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                  <div>
+                    <div className="mb-2 flex items-center gap-2">
+                      <Route
+                        size={20}
+                        aria-hidden="true"
+                        className="text-green-300"
+                      />
+                      <h3 className="text-lg font-semibold text-white">
+                        Week-by-Week Roadmap
+                      </h3>
+                    </div>
+                    <p className="text-sm text-gray-400">
+                      Follow these weekly blocks to convert skill gaps into
+                      project-ready strengths.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <AnimatedBadge variant="success">
+                      <BookOpen size={13} aria-hidden="true" />
+                      {aiRoadmap.length} learning steps
+                    </AnimatedBadge>
+
+                    <AnimatedBadge>
+                      <ListChecks size={13} aria-hidden="true" />
+                      {roadmapProgressPercent}% complete
+                    </AnimatedBadge>
+                  </div>
                 </div>
 
                 {aiRoadmap.length > 0 ? (
-                  <div className="relative">
-                    <div
-                      aria-hidden="true"
-                      className="absolute left-4 top-2 bottom-2 w-px bg-white/10"
-                    ></div>
+                  <div className="mb-6 rounded-3xl border border-white/10 bg-white/[0.04] p-4">
+                    <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h4 className="font-semibold text-white">
+                          Roadmap Progress
+                        </h4>
+                        <p className="text-sm text-gray-400">
+                          Mark each weekly task as you complete it. Progress is
+                          saved locally for this analysis.
+                        </p>
+                      </div>
 
-                    <div className="space-y-6">
-                      {aiRoadmap.map((item, i) => (
+                      <span className="rounded-2xl border border-emerald-300/20 bg-emerald-500/10 px-3 py-1 text-sm font-semibold text-emerald-200">
+                        {roadmapProgressSummary.completedTasks}/
+                        {roadmapProgressSummary.totalTasks} tasks done
+                      </span>
+                    </div>
+
+                    <div
+                      className="h-2.5 w-full overflow-hidden rounded-full bg-slate-800"
+                      role="progressbar"
+                      aria-label="Roadmap completion progress"
+                      aria-valuenow={roadmapProgressPercent}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                    >
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${roadmapProgressPercent}%` }}
+                        transition={{ duration: 0.45 }}
+                        className="h-2.5 rounded-full bg-gradient-to-r from-indigo-500 via-violet-500 to-emerald-400"
+                      />
+                    </div>
+
+                    <div className="mt-3 grid gap-2 text-sm text-gray-300 sm:grid-cols-3">
+                      <span>
+                        {roadmapProgressSummary.completedWeeks} completed weeks
+                      </span>
+                      <span>
+                        {roadmapProgressSummary.inProgressWeeks} in progress
+                      </span>
+                      <span>
+                        {Math.max(
+                          aiRoadmap.length -
+                            roadmapProgressSummary.completedWeeks -
+                            roadmapProgressSummary.inProgressWeeks,
+                          0,
+                        )}{" "}
+                        not started
+                      </span>
+                    </div>
+                  </div>
+                ) : null}
+
+                {aiRoadmap.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    {aiRoadmap.map((item, i) => {
+                      const {
+                        stepKey,
+                        tasks,
+                        completedTasks,
+                        totalTasks,
+                        isStarted,
+                        isCompleted,
+                      } = getStepProgress(item, i);
+
+                      const statusLabel = isCompleted
+                        ? "Completed"
+                        : isStarted
+                          ? "In Progress"
+                          : "Not Started";
+
+                      const statusVariant = isCompleted
+                        ? "success"
+                        : isStarted
+                          ? "warning"
+                          : "default";
+
+                      return (
                         <motion.div
                           key={`${item.week}-${item.skill}-${i}`}
-                          initial={{ opacity: 0, x: -22 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: i * 0.12 }}
-                          className="relative pl-12"
+                          initial={{ opacity: 0, y: 18 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.08 }}
+                          className="relative overflow-hidden rounded-3xl border border-white/10 bg-slate-950/25 p-4 transition duration-200 before:pointer-events-none before:absolute before:left-0 before:top-0 before:h-24 before:w-24 before:rounded-br-full before:bg-indigo-400/0 before:blur-2xl before:transition before:duration-200 after:pointer-events-none after:absolute after:bottom-0 after:right-0 after:h-24 after:w-24 after:rounded-tl-full after:bg-emerald-400/0 after:blur-2xl after:transition after:duration-200 hover:-translate-y-1 hover:border-indigo-400/45 hover:shadow-[0_22px_70px_rgba(99,102,241,0.20)] hover:before:bg-indigo-400/25 hover:after:bg-emerald-400/20 md:p-5"
                         >
-                          <div
-                            aria-hidden="true"
-                            className="absolute left-0 top-1 flex h-8 w-8 items-center justify-center rounded-full border border-indigo-500/40 bg-indigo-500/20 text-indigo-300 shadow-sm"
-                          >
-                            {i + 1}
-                          </div>
-
-                          <div className="premium-roadmap-card rounded-2xl p-4 backdrop-blur-md transition duration-200 md:p-5">
-                            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                              <h4 className="premium-roadmap-title font-semibold text-indigo-400">
-                                {item.week}: {item.skill}
-                              </h4>
-
-                              <div className="flex flex-wrap gap-2">
-                                {item.difficulty && (
-                                  <AnimatedBadge className="text-xs">
-                                    <Gauge size={13} aria-hidden="true" />
-                                    Difficulty: {item.difficulty}
-                                  </AnimatedBadge>
-                                )}
-
-                                {item.timeEstimate && (
-                                  <AnimatedBadge
-                                    variant="success"
-                                    className="text-xs"
-                                  >
-                                    <Clock size={13} aria-hidden="true" />
-                                    Time: {item.timeEstimate}
-                                  </AnimatedBadge>
-                                )}
+                          <div className="mb-4 flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3">
+                              <div
+                                aria-hidden="true"
+                                className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-indigo-500/40 bg-indigo-500/20 font-bold text-indigo-200"
+                              >
+                                {i + 1}
+                              </div>
+                              <div>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                  {item.week}
+                                </p>
+                                <h4 className="mt-1 text-lg font-semibold text-indigo-200">
+                                  {item.skill}
+                                </h4>
                               </div>
                             </div>
 
-                            <div className="mt-4 space-y-3">
-                              <p className="premium-roadmap-text text-sm leading-relaxed text-gray-400 md:text-base">
-                                <span className="premium-roadmap-label font-semibold text-gray-300">
-                                  Learn:
-                                </span>{" "}
-                                {item.learn}
-                              </p>
-
-                              {item.howToLearn && (
-                                <p className="premium-roadmap-text text-sm leading-relaxed text-gray-400 md:text-base">
-                                  <span className="premium-roadmap-label font-semibold text-gray-300">
-                                    How to Learn:
-                                  </span>{" "}
-                                  {item.howToLearn}
-                                </p>
+                            <div className="flex flex-wrap justify-end gap-2">
+                              <AnimatedBadge
+                                variant={statusVariant}
+                                className="text-xs"
+                              >
+                                {statusLabel}
+                              </AnimatedBadge>
+                              {item.difficulty && (
+                                <AnimatedBadge className="text-xs">
+                                  <Gauge size={13} aria-hidden="true" />
+                                  {item.difficulty}
+                                </AnimatedBadge>
                               )}
-
-                              <p className="premium-roadmap-text text-sm leading-relaxed text-gray-400 md:text-base">
-                                <span className="premium-roadmap-label font-semibold text-gray-300">
-                                  Free Resource:
-                                </span>{" "}
-                                {item.resource}
-                              </p>
-
-                              <p className="premium-roadmap-text text-sm leading-relaxed text-gray-400 md:text-base">
-                                <span className="premium-roadmap-label font-semibold text-gray-300">
-                                  Mini Project:
-                                </span>{" "}
-                                {item.project}
-                              </p>
+                              {item.timeEstimate && (
+                                <AnimatedBadge
+                                  variant="success"
+                                  className="text-xs"
+                                >
+                                  <Clock size={13} aria-hidden="true" />
+                                  {item.timeEstimate}
+                                </AnimatedBadge>
+                              )}
                             </div>
                           </div>
+
+                          <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                              <p className="text-sm font-semibold text-white">
+                                {completedTasks}/{totalTasks} tasks completed
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {isCompleted
+                                  ? "Great work. This week is finished."
+                                  : isStarted
+                                    ? "Keep going and finish the remaining tasks."
+                                    : "Start with the learning task, then build the mini project."}
+                              </p>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => toggleRoadmapWeek(item, i)}
+                              className="inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-300/20 bg-indigo-500/10 px-3 py-2 text-sm font-semibold text-indigo-100 transition hover:-translate-y-0.5 hover:border-indigo-300/45 hover:bg-indigo-500/20"
+                            >
+                              {isCompleted ? (
+                                <RotateCcw size={15} aria-hidden="true" />
+                              ) : (
+                                <CheckSquare size={15} aria-hidden="true" />
+                              )}
+                              {isCompleted
+                                ? "Reset Week"
+                                : "Mark Week Complete"}
+                            </button>
+                          </div>
+
+                          <div className="space-y-3">
+                            {tasks.map(({ key, label }) => {
+                              const isTaskComplete = Boolean(
+                                roadmapProgress?.[stepKey]?.[key],
+                              );
+
+                              return (
+                                <div
+                                  key={key}
+                                  className={`rounded-2xl border p-3 transition ${
+                                    isTaskComplete
+                                      ? "border-emerald-400/30 bg-emerald-500/10"
+                                      : "border-white/10 bg-white/5"
+                                  }`}
+                                >
+                                  <div className="mb-2 flex items-center justify-between gap-3">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                      {label}
+                                    </p>
+
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        toggleRoadmapTask(stepKey, key)
+                                      }
+                                      aria-label={`${
+                                        isTaskComplete
+                                          ? "Mark incomplete"
+                                          : "Mark complete"
+                                      } ${label} for ${item.week}`}
+                                      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold transition hover:-translate-y-0.5 ${
+                                        isTaskComplete
+                                          ? "border-emerald-300/30 bg-emerald-500/15 text-emerald-200"
+                                          : "border-white/10 bg-white/5 text-gray-300 hover:border-indigo-300/30 hover:text-indigo-100"
+                                      }`}
+                                    >
+                                      {isTaskComplete ? (
+                                        <CheckSquare
+                                          size={13}
+                                          aria-hidden="true"
+                                        />
+                                      ) : (
+                                        <Square size={13} aria-hidden="true" />
+                                      )}
+                                      {isTaskComplete ? "Done" : "Mark done"}
+                                    </button>
+                                  </div>
+
+                                  <p className="mt-1 text-sm leading-relaxed text-gray-300">
+                                    {item[key]}
+                                  </p>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </motion.div>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
                 ) : (
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-5 ">
-                    <p className="text-sm text-gray-400 md:text-base">
-                      Your profile already matches the target role well. Keep
-                      building advanced projects and applying for internships.
-                    </p>
-                  </div>
+                  <EmptyState
+                    icon={Layers3}
+                    title="No roadmap steps needed right now"
+                    description="Your profile already matches the target role well. Keep building advanced projects and applying for internships."
+                    compact
+                    className="bg-white/5"
+                  />
                 )}
               </Card>
-            </motion.div>
+            </motion.section>
 
-            {/* RECENT HISTORY */}
-            <motion.div
+            <motion.section
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
             >
               <Card className="mt-8 md:mt-10">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+                <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                   <div>
-                    <div className="flex items-center gap-2 text-indigo-300 mb-2">
+                    <div className="mb-2 flex items-center gap-2 text-indigo-300">
                       <History size={20} aria-hidden="true" />
-                      <h3 className="text-lg font-semibold text-indigo-400">
+                      <h3 className="text-lg font-semibold text-white">
                         Recent Analyses
                       </h3>
                     </div>
-
                     <p className="text-sm text-gray-400">
                       These are the latest analyses saved to your account.
                     </p>
@@ -1132,7 +1582,7 @@ export default function Dashboard() {
                   <div
                     role="alert"
                     aria-live="assertive"
-                    className="mb-5 rounded-xl bg-yellow-500/10 border border-yellow-500/20 p-4 text-yellow-300 text-sm"
+                    className="mb-5 rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-4 text-sm text-yellow-300"
                   >
                     {historyError}
                   </div>
@@ -1140,11 +1590,11 @@ export default function Dashboard() {
 
                 {historyLoading && (
                   <div
-                    className="text-center py-8"
+                    className="rounded-3xl border border-white/10 bg-white/5 py-10 text-center"
                     role="status"
                     aria-live="polite"
                   >
-                    <div className="mx-auto mb-4 h-10 w-10 rounded-full border-4 border-indigo-500/20 border-t-indigo-400 animate-spin"></div>
+                    <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-indigo-500/20 border-t-indigo-400"></div>
                     <p className="text-sm text-gray-400">
                       Loading recent analyses...
                     </p>
@@ -1166,22 +1616,21 @@ export default function Dashboard() {
                     variants={staggerContainer}
                     initial="hidden"
                     animate="visible"
-                    className="grid grid-cols-1 md:grid-cols-3 gap-4"
+                    className="grid grid-cols-1 gap-4 md:grid-cols-3"
                   >
                     {recentHistory.map((item) => (
                       <motion.div
                         key={item._id}
                         variants={fadeUp}
                         transition={{ duration: 0.45 }}
-                        className="premium-inner-card rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:bg-white/10 hover:border-indigo-500/30"
+                        className="rounded-3xl border border-white/10 bg-white/5 p-4 transition hover:-translate-y-1 hover:border-indigo-500/30 hover:bg-white/10"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="text-sm text-gray-400 truncate">
+                            <p className="truncate text-sm text-gray-400">
                               {item.resumeName || "Untitled Resume"}
                             </p>
-
-                            <h4 className="font-semibold text-gray-100 mt-1">
+                            <h4 className="mt-1 font-semibold text-gray-100">
                               {item.targetRole}
                             </h4>
                           </div>
@@ -1193,7 +1642,7 @@ export default function Dashboard() {
                           </AnimatedBadge>
                         </div>
 
-                        <div className="flex flex-wrap gap-2 mt-4">
+                        <div className="mt-4 flex flex-wrap gap-2">
                           <AnimatedBadge
                             variant={
                               item.roadmapSource === "ai"
@@ -1213,13 +1662,13 @@ export default function Dashboard() {
                           </AnimatedBadge>
                         </div>
 
-                        <div className="flex gap-2 mt-4">
+                        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3 md:grid-cols-1 xl:grid-cols-3">
                           <Link
                             to={`/analysis/${item._id}`}
                             aria-label={`View details for ${
                               item.resumeName || item.targetRole
                             } analysis`}
-                            className="carbon-button-soft inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-gray-200 transition hover:bg-white/10"
+                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-gray-200 transition hover:bg-white/10"
                           >
                             Detail
                           </Link>
@@ -1231,7 +1680,7 @@ export default function Dashboard() {
                             aria-label={`Open ${
                               item.resumeName || item.targetRole
                             } analysis`}
-                            className="carbon-button flex-1 inline-flex items-center justify-center gap-2 rounded-lg border border-indigo-500 bg-indigo-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-indigo-600 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-500 bg-indigo-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-indigo-600 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             <Eye size={15} aria-hidden="true" />
                             {openingId === item._id ? "Opening..." : "Open"}
@@ -1246,7 +1695,7 @@ export default function Dashboard() {
                             aria-label={`Delete ${
                               item.resumeName || item.targetRole
                             } analysis`}
-                            className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-500/20 bg-red-500/20 px-3 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-500/20 bg-red-500/20 px-3 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             <Trash2 size={15} aria-hidden="true" />
                             {deletingId === item._id ? "..." : "Delete"}
@@ -1257,12 +1706,11 @@ export default function Dashboard() {
                   </motion.div>
                 )}
               </Card>
-            </motion.div>
+            </motion.section>
           </>
         )}
       </main>
 
-      {/* Hidden PDF Export Section */}
       {isAuthenticated && analysis && (
         <div
           aria-hidden="true"

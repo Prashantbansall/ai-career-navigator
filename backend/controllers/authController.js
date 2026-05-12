@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import Analysis from "../models/Analysis.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 
 const generateToken = (userId) => {
@@ -108,5 +109,70 @@ export const getCurrentUser = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     user: sanitizeUser(req.user),
+  });
+});
+
+/**
+ * @desc    Get logged-in user profile summary and account stats
+ * @route   GET /api/auth/profile
+ * @access  Private
+ */
+export const getUserProfileSummary = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+
+  const [stats] = await Analysis.aggregate([
+    { $match: { userId } },
+    {
+      $group: {
+        _id: null,
+        totalAnalyses: { $sum: 1 },
+        averageReadinessScore: { $avg: "$jobReadiness" },
+        highestReadinessScore: { $max: "$jobReadiness" },
+      },
+    },
+  ]);
+
+  const latestAnalysis = await Analysis.findOne({ userId })
+    .sort({ createdAt: -1 })
+    .select(
+      "resumeName targetRole roleTitle jobReadiness roadmapSource aiProviderUsed createdAt",
+    );
+
+  const roleBreakdown = await Analysis.aggregate([
+    { $match: { userId } },
+    {
+      $group: {
+        _id: "$targetRole",
+        count: { $sum: 1 },
+      },
+    },
+    { $sort: { count: -1, _id: 1 } },
+    { $limit: 5 },
+    {
+      $project: {
+        _id: 0,
+        role: { $ifNull: ["$_id", "Not specified"] },
+        count: 1,
+      },
+    },
+  ]);
+
+  res.status(200).json({
+    success: true,
+    message: "User profile summary fetched successfully",
+    data: {
+      profile: {
+        user: sanitizeUser(req.user),
+        totalAnalyses: stats?.totalAnalyses || 0,
+        averageReadinessScore: Math.round(stats?.averageReadinessScore || 0),
+        highestReadinessScore: Math.round(stats?.highestReadinessScore || 0),
+        mostRecentTargetRole: latestAnalysis?.targetRole || "Not available",
+        mostRecentRoleTitle:
+          latestAnalysis?.roleTitle ||
+          "Create an analysis to personalize this profile",
+        latestAnalysis,
+        roleBreakdown,
+      },
+    },
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import Navbar from "../components/layout/Navbar";
@@ -8,30 +8,139 @@ import AnimatedBadge from "../components/ui/AnimatedBadge";
 import GlowButton from "../components/ui/GlowButton";
 import ConfirmModal from "../components/ui/ConfirmModal";
 import SkeletonCard from "../components/ui/SkeletonCard";
-import { getAnalysisByIdAPI, deleteAnalysisAPI } from "../services/api";
+import {
+  deleteAnalysisAPI,
+  exportAnalysisPdfAPI,
+  getAnalysisByIdAPI,
+} from "../services/api";
 import { getReadinessStyle } from "../utils/readiness";
 import { motion } from "framer-motion";
-import { exportAnalysisPdfAPI } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import {
+  AlertTriangle,
   ArrowLeft,
   Brain,
   Calendar,
   CheckCircle2,
+  ChevronRight,
   Clock,
+  Database,
+  Download,
+  ExternalLink,
   FileText,
   Gauge,
+  LayoutDashboard,
+  Lightbulb,
+  ListChecks,
   Route,
+  ShieldCheck,
   Sparkles,
   Target,
   Trash2,
   TrendingUp,
-  XCircle,
-  AlertTriangle,
   WandSparkles,
-  Database,
-  Download,
+  XCircle,
 } from "lucide-react";
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 22 },
+  visible: { opacity: 1, y: 0 },
+};
+
+const staggerContainer = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+};
+
+const safeArray = (value) => (Array.isArray(value) ? value : []);
+
+const getSkillCoverage = (matchedSkills, requiredSkills) => {
+  if (!requiredSkills.length) return 0;
+  return Math.round((matchedSkills.length / requiredSkills.length) * 100);
+};
+
+function DetailStatCard({ icon: Icon, label, value, helper, tone = "indigo" }) {
+  const toneStyles = {
+    indigo:
+      "from-indigo-500/20 to-cyan-500/10 text-indigo-300 border-indigo-400/20",
+    green:
+      "from-emerald-500/20 to-green-500/10 text-emerald-300 border-emerald-400/20",
+    yellow:
+      "from-yellow-500/20 to-orange-500/10 text-yellow-300 border-yellow-400/20",
+    red: "from-red-500/20 to-rose-500/10 text-red-300 border-red-400/20",
+  };
+
+  return (
+    <Card className="relative overflow-hidden p-5 hover:bg-white/[0.06]">
+      <div
+        className={`absolute -right-10 -top-10 h-28 w-28 rounded-full bg-gradient-to-br ${toneStyles[tone]} blur-2xl`}
+      />
+      <div className="relative flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-slate-400">{label}</p>
+          <p className="mt-2 break-words text-2xl font-black text-white md:text-3xl">
+            {value}
+          </p>
+          {helper && (
+            <p className="mt-2 text-sm leading-6 text-slate-400">{helper}</p>
+          )}
+        </div>
+
+        <div
+          className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl border bg-gradient-to-br ${toneStyles[tone]}`}
+        >
+          <Icon size={22} aria-hidden="true" />
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function SkillPanel({
+  title,
+  icon: Icon,
+  skills,
+  variant = "default",
+  emptyText,
+}) {
+  const tone = {
+    default: "text-indigo-300",
+    success: "text-emerald-300",
+    danger: "text-red-300",
+  }[variant];
+
+  return (
+    <Card className="h-full">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Icon size={20} className={tone} aria-hidden="true" />
+          <h3 className="text-lg font-bold text-white">{title}</h3>
+        </div>
+        <AnimatedBadge variant={variant === "default" ? "default" : variant}>
+          {skills.length}
+        </AnimatedBadge>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {skills.length > 0 ? (
+          skills.map((skill, index) => (
+            <AnimatedBadge key={`${skill}-${index}`} variant={variant}>
+              {skill}
+            </AnimatedBadge>
+          ))
+        ) : (
+          <p className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-400">
+            {emptyText}
+          </p>
+        )}
+      </div>
+    </Card>
+  );
+}
 
 export default function AnalysisDetail() {
   const { id } = useParams();
@@ -45,28 +154,23 @@ export default function AnalysisDetail() {
   const [error, setError] = useState("");
   const [exportingPDF, setExportingPDF] = useState(false);
 
-  const extractedSkills = analysis?.extractedSkills || [];
-  const requiredSkills = analysis?.requiredSkills || [];
-  const matchedSkills = analysis?.matchedSkills || [];
-  const missingSkills = analysis?.missingSkills || [];
-  const roadmap = analysis?.roadmap || [];
-  const aiRoadmap = analysis?.aiRoadmap || roadmap;
-  const aiRecommendations = analysis?.aiRecommendations || [];
+  const extractedSkills = safeArray(analysis?.extractedSkills);
+  const requiredSkills = safeArray(analysis?.requiredSkills);
+  const matchedSkills = safeArray(analysis?.matchedSkills);
+  const missingSkills = safeArray(analysis?.missingSkills);
+  const roadmap = safeArray(analysis?.roadmap);
+  const aiRoadmap = safeArray(analysis?.aiRoadmap).length
+    ? safeArray(analysis?.aiRoadmap)
+    : roadmap;
+  const aiRecommendations = safeArray(analysis?.aiRecommendations);
   const readinessStyle = getReadinessStyle(analysis?.jobReadiness || 0);
 
-  const fadeUp = {
-    hidden: { opacity: 0, y: 22 },
-    visible: { opacity: 1, y: 0 },
-  };
+  const skillCoverage = useMemo(
+    () => getSkillCoverage(matchedSkills, requiredSkills),
+    [matchedSkills, requiredSkills],
+  );
 
-  const staggerContainer = {
-    hidden: {},
-    visible: {
-      transition: {
-        staggerChildren: 0.1,
-      },
-    },
-  };
+  const topMissingSkills = missingSkills.slice(0, 4);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -88,9 +192,9 @@ export default function AnalysisDetail() {
         const message =
           err.message ||
           "This analysis either does not exist or does not belong to your account.";
-      
+
         setError(message);
-      
+
         if (
           message.toLowerCase().includes("not found") ||
           message.toLowerCase().includes("invalid")
@@ -177,9 +281,11 @@ export default function AnalysisDetail() {
       await exportAnalysisPdfAPI(analysisId);
 
       toast.success("Roadmap PDF exported successfully");
-    } catch (error) {
-      console.error("Failed to export roadmap PDF:", error.message);
-      toast.error(error.message || "Unable to export PDF. Please try again.");
+    } catch (exportError) {
+      console.error("Failed to export roadmap PDF:", exportError.message);
+      toast.error(
+        exportError.message || "Unable to export PDF. Please try again.",
+      );
     } finally {
       setExportingPDF(false);
     }
@@ -189,88 +295,105 @@ export default function AnalysisDetail() {
     <GradientBackground>
       <Navbar />
 
-      <main className="max-w-7xl mx-auto px-4 mt-8 md:mt-10 pb-20">
-        {/* HEADER */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            animate="visible"
-          >
-            <motion.button
-              variants={fadeUp}
-              onClick={() => navigate("/history")}
-              className="inline-flex items-center gap-2 text-sm text-indigo-300 hover:text-indigo-200 mb-3"
-            >
-              <ArrowLeft size={16} />
-              Back to History
-            </motion.button>
-
-            <motion.p
-              variants={fadeUp}
-              className="inline-flex items-center gap-2 text-sm text-indigo-300 mb-2"
-            >
-              <Database size={16} />
-              Saved analysis detail
-            </motion.p>
-
-            <motion.h2
-              variants={fadeUp}
-              className="text-2xl md:text-4xl font-bold"
-            >
-              Analysis Detail
-            </motion.h2>
-
-            <motion.p
-              variants={fadeUp}
-              className="text-sm md:text-base text-gray-400 mt-2"
-            >
-              Review the complete saved resume analysis, roadmap, AI metadata,
-              and readiness insights.
-            </motion.p>
-          </motion.div>
-
-          {analysis && (
-            <div className="flex flex-col sm:flex-row gap-3">
-              <GlowButton onClick={openInDashboard} variant="solid">
-                Open in Dashboard
-              </GlowButton>
-
-              <button
-                type="button"
-                onClick={handleExportPDF}
-                disabled={exportingPDF}
-                aria-label="Export this analysis as PDF"
-                className="carbon-button-soft inline-flex items-center justify-center gap-2 rounded-2xl border px-6 py-3 font-semibold"
+      <main className="mx-auto max-w-7xl px-4 pb-20 pt-8 sm:px-6 lg:px-8">
+        <motion.section
+          variants={staggerContainer}
+          initial="hidden"
+          animate="visible"
+          className="mb-8 overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 shadow-2xl shadow-black/20 backdrop-blur-xl md:p-8"
+        >
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="max-w-3xl">
+              <motion.button
+                variants={fadeUp}
+                onClick={() => navigate("/history")}
+                className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-indigo-200 transition hover:-translate-y-0.5 hover:border-indigo-400/40 hover:bg-white/10"
               >
-                {exportingPDF ? (
-                  <>
-                    <span className="h-4 w-4 rounded-full border-2 border-indigo-300/30 border-t-indigo-300 animate-spin" />
-                    Generating PDF...
-                  </>
-                ) : (
-                  <>
-                    <Download size={16} aria-hidden="true" />
-                    Export PDF
-                  </>
-                )}
-              </button>
+                <ArrowLeft size={16} aria-hidden="true" />
+                Back to History
+              </motion.button>
 
-              <button
-                onClick={requestDeleteAnalysis}
-                className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-red-500/20 text-red-300 hover:bg-red-500/30 rounded-xl text-sm transition"
+              <motion.p
+                variants={fadeUp}
+                className="mb-3 inline-flex items-center gap-2 rounded-full border border-indigo-400/20 bg-indigo-500/10 px-4 py-2 text-sm font-semibold text-indigo-200"
               >
-                <Trash2 size={16} />
-                Delete
-              </button>
+                <Database size={16} aria-hidden="true" />
+                Saved analysis report
+              </motion.p>
+
+              <motion.h1
+                variants={fadeUp}
+                className="text-3xl font-black tracking-tight text-white md:text-5xl"
+              >
+                Analysis Detail
+              </motion.h1>
+
+              <motion.p
+                variants={fadeUp}
+                className="mt-4 max-w-2xl text-sm leading-7 text-slate-400 md:text-base"
+              >
+                Review your saved resume analysis, readiness score, skill gaps,
+                roadmap, recommendations, and export-ready career report in one
+                polished workspace.
+              </motion.p>
             </div>
-          )}
-        </div>
 
-        {/* LOADING */}
-        {loading && <SkeletonCard count={4} />}
+            {analysis && (
+              <motion.div
+                variants={fadeUp}
+                className="grid gap-3 sm:grid-cols-2 lg:min-w-[360px] lg:grid-cols-1 xl:grid-cols-2"
+              >
+                <GlowButton
+                  onClick={openInDashboard}
+                  variant="solid"
+                  className="w-full"
+                >
+                  <LayoutDashboard size={16} aria-hidden="true" />
+                  Open Dashboard
+                </GlowButton>
 
-        {/* ERROR / INVALID ANALYSIS */}
+                <button
+                  type="button"
+                  onClick={handleExportPDF}
+                  disabled={exportingPDF}
+                  aria-label="Export this analysis as PDF"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/10 px-6 py-3 font-semibold text-slate-100 transition hover:-translate-y-0.5 hover:border-indigo-400/40 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {exportingPDF ? (
+                    <>
+                      <span className="h-4 w-4 rounded-full border-2 border-indigo-300/30 border-t-indigo-300 animate-spin" />
+                      Generating PDF...
+                    </>
+                  ) : (
+                    <>
+                      <Download size={16} aria-hidden="true" />
+                      Export PDF
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={requestDeleteAnalysis}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-red-400/20 bg-red-500/10 px-6 py-3 font-semibold text-red-300 transition hover:-translate-y-0.5 hover:bg-red-500/20 sm:col-span-2 lg:col-span-1 xl:col-span-2"
+                >
+                  <Trash2 size={16} aria-hidden="true" />
+                  Delete Analysis
+                </button>
+              </motion.div>
+            )}
+          </div>
+        </motion.section>
+
+        {loading && (
+          <div className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-3">
+              <SkeletonCard count={3} />
+            </div>
+            <SkeletonCard count={4} />
+          </div>
+        )}
+
         {!loading && error && (
           <motion.div
             initial={{ opacity: 0, y: 22, scale: 0.98 }}
@@ -287,8 +410,8 @@ export default function AnalysisDetail() {
               </h2>
 
               <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-400 md:text-base">
-                This analysis either does not exist, has been deleted, or does
-                not belong to your account.
+                This saved report may have been deleted, the link may be
+                invalid, or it may not belong to your account.
               </p>
 
               <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-400">
@@ -312,384 +435,408 @@ export default function AnalysisDetail() {
           </motion.div>
         )}
 
-        {/* CONTENT */}
         {!loading && analysis && (
-          <>
-            {/* TOP STATS */}
-            <motion.div
-              variants={staggerContainer}
-              initial="hidden"
-              animate="visible"
-              className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"
+          <motion.div
+            variants={staggerContainer}
+            initial="hidden"
+            animate="visible"
+          >
+            <motion.section
+              variants={fadeUp}
+              className="mb-8 grid gap-6 lg:grid-cols-[1.25fr_0.75fr]"
             >
-              <motion.div variants={fadeUp}>
-                <Card>
-                  <div className="flex items-start justify-between gap-4">
+              <Card className="relative overflow-hidden">
+                <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-indigo-500/20 blur-3xl" />
+                <div className="relative">
+                  <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                      <div className="flex items-center gap-2 text-indigo-300 mb-2">
-                        <FileText size={18} />
-                        <h3 className="text-lg font-semibold text-indigo-400">
-                          Resume
-                        </h3>
-                      </div>
-
-                      <p className="text-xl font-bold break-words">
+                      <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-indigo-300">
+                        <FileText size={16} aria-hidden="true" />
+                        Resume Analysis Summary
+                      </p>
+                      <h2 className="break-words text-2xl font-black text-white md:text-3xl">
                         {analysis.resumeName || "Untitled Resume"}
-                      </p>
-
-                      <p className="text-sm text-gray-400 mt-2 flex items-center gap-2">
-                        <Calendar size={14} />
-                        {formatDate(analysis.createdAt)}
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-              </motion.div>
-
-              <motion.div variants={fadeUp}>
-                <Card>
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-2 text-indigo-300 mb-2">
-                        <Target size={18} />
-                        <h3 className="text-lg font-semibold text-indigo-400">
-                          Target Role
-                        </h3>
-                      </div>
-
-                      <p className="text-2xl font-bold">
-                        {analysis.targetRole}
-                      </p>
-
-                      <p className="text-sm text-gray-400 mt-1">
-                        {analysis.roleTitle || "Target role analysis"}
+                      </h2>
+                      <p className="mt-2 flex items-center gap-2 text-sm text-slate-400">
+                        <Calendar size={15} aria-hidden="true" />
+                        Saved on {formatDate(analysis.createdAt)}
                       </p>
                     </div>
-                  </div>
-                </Card>
-              </motion.div>
 
-              <motion.div variants={fadeUp}>
-                <Card>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <TrendingUp size={18} className={readinessStyle.text} />
-                      <h3
-                        className={`text-lg font-semibold ${readinessStyle.text}`}
-                      >
-                        Job Readiness
-                      </h3>
-                    </div>
-
-                    <AnimatedBadge variant={readinessStyle.badgeVariant}>
-                      {readinessStyle.label}
+                    <AnimatedBadge
+                      variant={
+                        analysis.roadmapSource === "ai" ? "success" : "warning"
+                      }
+                    >
+                      {analysis.roadmapSource === "ai"
+                        ? "AI Powered"
+                        : "Fallback Mode"}
                     </AnimatedBadge>
                   </div>
 
-                  <p className="text-3xl font-bold mt-2">
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                        Target Role
+                      </p>
+                      <p className="mt-2 text-xl font-bold text-white">
+                        {analysis.targetRole || "Not selected"}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-400">
+                        {analysis.roleTitle || "Career target"}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                        Skill Match
+                      </p>
+                      <p className="mt-2 text-xl font-bold text-white">
+                        {matchedSkills.length}/
+                        {requiredSkills.length || matchedSkills.length}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-400">
+                        {skillCoverage}% coverage
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                        Roadmap
+                      </p>
+                      <p className="mt-2 text-xl font-bold text-white">
+                        {aiRoadmap.length} weeks
+                      </p>
+                      <p className="mt-1 text-sm text-slate-400">
+                        Action plan generated
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="relative overflow-hidden">
+                <div
+                  className={`absolute inset-x-8 -top-20 h-40 rounded-full ${readinessStyle.bg} opacity-20 blur-3xl`}
+                />
+                <div className="relative text-center">
+                  <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl border border-white/10 bg-white/10">
+                    <TrendingUp
+                      size={26}
+                      className={readinessStyle.text}
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <p className="text-sm font-semibold text-slate-400">
+                    Latest Readiness Score
+                  </p>
+                  <p
+                    className={`mt-2 text-6xl font-black ${readinessStyle.text}`}
+                  >
                     {analysis.jobReadiness || 0}%
                   </p>
+                  <AnimatedBadge
+                    variant={readinessStyle.badgeVariant}
+                    className="mt-4"
+                  >
+                    {readinessStyle.label}
+                  </AnimatedBadge>
 
-                  <div className="mt-4 w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+                  <div className="mt-6 h-3 overflow-hidden rounded-full bg-slate-800">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${analysis.jobReadiness || 0}%` }}
                       transition={{ duration: 0.9, delay: 0.2 }}
-                      className={`${readinessStyle.bg} h-3 rounded-full`}
-                    ></motion.div>
+                      className={`${readinessStyle.bg} h-full rounded-full`}
+                    />
                   </div>
 
                   {analysis.readinessReason && (
-                    <p className="text-sm text-gray-400 mt-3">
+                    <p className="mt-4 text-sm leading-6 text-slate-400">
                       {analysis.readinessReason}
                     </p>
                   )}
-                </Card>
-              </motion.div>
-            </motion.div>
-
-            {/* AI METADATA */}
-            <motion.div
-              initial={{ opacity: 0, y: 22 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.55 }}
-            >
-              <Card className="mb-8">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Brain
-                        size={20}
-                        className={
-                          analysis.roadmapSource === "ai"
-                            ? "text-green-300"
-                            : "text-yellow-300"
-                        }
-                      />
-
-                      <h3 className="text-lg font-semibold text-indigo-400">
-                        Roadmap Source
-                      </h3>
-                    </div>
-
-                    <p className="text-sm text-gray-400">
-                      {analysis.roadmapSource === "ai"
-                        ? `This roadmap was generated using ${
-                            analysis.aiProviderUsed || "AI"
-                          }.`
-                        : "This roadmap is using the rule-based fallback engine."}
-                    </p>
-
-                    {analysis.roadmapSource === "ai" && (
-                      <p className="text-xs text-gray-500 mt-2">
-                        Provider: {analysis.aiProviderUsed || "AI"} • Model:{" "}
-                        {analysis.aiModelUsed || "Unknown"} • Prompt:{" "}
-                        {analysis.promptVersion || "Unknown"}
-                      </p>
-                    )}
-
-                    {analysis.aiError && (
-                      <p className="text-sm text-yellow-300 mt-2">
-                        {analysis.aiError}
-                      </p>
-                    )}
-                  </div>
-
-                  <AnimatedBadge
-                    variant={
-                      analysis.roadmapSource === "ai" ? "success" : "warning"
-                    }
-                  >
-                    {analysis.roadmapSource === "ai"
-                      ? `${analysis.aiProviderUsed || "AI"} Powered`
-                      : "Fallback Mode"}
-                  </AnimatedBadge>
                 </div>
               </Card>
-            </motion.div>
+            </motion.section>
 
-            {/* SKILLS */}
-            <motion.div
-              variants={staggerContainer}
-              initial="hidden"
-              animate="visible"
-              className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+            <motion.section
+              variants={fadeUp}
+              className="mb-8 grid gap-6 md:grid-cols-2 xl:grid-cols-4"
             >
-              <motion.div variants={fadeUp}>
+              <DetailStatCard
+                icon={ShieldCheck}
+                label="Matched Skills"
+                value={matchedSkills.length}
+                helper="Skills already aligned with the role"
+                tone="green"
+              />
+              <DetailStatCard
+                icon={Target}
+                label="Missing Skills"
+                value={missingSkills.length}
+                helper={
+                  topMissingSkills.length
+                    ? topMissingSkills.join(", ")
+                    : "No major gaps found"
+                }
+                tone={missingSkills.length ? "red" : "green"}
+              />
+              <DetailStatCard
+                icon={ListChecks}
+                label="Roadmap Weeks"
+                value={aiRoadmap.length}
+                helper="Week-by-week learning plan"
+                tone="indigo"
+              />
+              <DetailStatCard
+                icon={Brain}
+                label="Roadmap Source"
+                value={
+                  analysis.aiProviderUsed ||
+                  (analysis.roadmapSource === "ai" ? "AI" : "Fallback")
+                }
+                helper={
+                  analysis.aiModelUsed ||
+                  analysis.promptVersion ||
+                  "Career roadmap engine"
+                }
+                tone="yellow"
+              />
+            </motion.section>
+
+            <motion.section
+              variants={fadeUp}
+              className="mb-8 grid gap-6 lg:grid-cols-3"
+            >
+              <SkillPanel
+                title="Extracted Skills"
+                icon={FileText}
+                skills={extractedSkills}
+                emptyText="No skills were detected from this resume."
+              />
+              <SkillPanel
+                title="Matched Skills"
+                icon={CheckCircle2}
+                skills={matchedSkills}
+                variant="success"
+                emptyText="No matched skills found yet."
+              />
+              <SkillPanel
+                title="Missing Skills"
+                icon={XCircle}
+                skills={missingSkills}
+                variant="danger"
+                emptyText="Great! No major skill gaps found."
+              />
+            </motion.section>
+
+            {(analysis.aiSummary ||
+              aiRecommendations.length > 0 ||
+              analysis.aiError) && (
+              <motion.section variants={fadeUp} className="mb-8">
                 <Card>
-                  <div className="flex items-center gap-2 mb-4">
-                    <FileText size={20} className="text-indigo-300" />
-                    <h3 className="text-lg font-semibold text-indigo-400">
-                      Extracted Skills
-                    </h3>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {extractedSkills.length > 0 ? (
-                      extractedSkills.map((skill, i) => (
-                        <AnimatedBadge key={i}>{skill}</AnimatedBadge>
-                      ))
-                    ) : (
-                      <p className="text-sm text-gray-400">
-                        No skills detected.
+                  <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-indigo-300">
+                        <WandSparkles size={18} aria-hidden="true" />
+                        AI Career Summary
                       </p>
-                    )}
-                  </div>
-                </Card>
-              </motion.div>
-
-              <motion.div variants={fadeUp}>
-                <Card>
-                  <div className="flex items-center gap-2 mb-4">
-                    <CheckCircle2 size={20} className="text-green-300" />
-                    <h3 className="text-lg font-semibold text-green-400">
-                      Matched Skills
-                    </h3>
+                      <h3 className="text-2xl font-black text-white">
+                        Recommended next moves
+                      </h3>
+                    </div>
+                    <AnimatedBadge
+                      variant={analysis.aiError ? "warning" : "success"}
+                    >
+                      {analysis.aiError ? "Needs Review" : "Personalized"}
+                    </AnimatedBadge>
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    {matchedSkills.length > 0 ? (
-                      matchedSkills.map((skill, i) => (
-                        <AnimatedBadge key={i} variant="success">
-                          {skill}
-                        </AnimatedBadge>
-                      ))
-                    ) : (
-                      <p className="text-sm text-gray-400">
-                        No matched skills found.
-                      </p>
-                    )}
-                  </div>
-                </Card>
-              </motion.div>
+                  {analysis.aiSummary && (
+                    <p className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm leading-7 text-slate-300 md:text-base">
+                      {analysis.aiSummary}
+                    </p>
+                  )}
 
-              <motion.div variants={fadeUp}>
-                <Card>
-                  <div className="flex items-center gap-2 mb-4">
-                    <XCircle size={20} className="text-red-300" />
-                    <h3 className="text-lg font-semibold text-red-400">
-                      Missing Skills
-                    </h3>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {missingSkills.length > 0 ? (
-                      missingSkills.map((skill, i) => (
-                        <AnimatedBadge key={i} variant="danger">
-                          {skill}
-                        </AnimatedBadge>
-                      ))
-                    ) : (
-                      <p className="text-sm text-gray-400">
-                        Great! No major skill gaps found.
-                      </p>
-                    )}
-                  </div>
-                </Card>
-              </motion.div>
-            </motion.div>
-
-            {/* AI SUMMARY */}
-            {analysis.aiEnabled && (
-              <motion.div
-                initial={{ opacity: 0, y: 22 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.65 }}
-              >
-                <Card className="mt-8 md:mt-10">
-                  <div className="flex items-center gap-2 mb-3">
-                    <WandSparkles size={20} className="text-indigo-300" />
-                    <h3 className="text-lg font-semibold text-indigo-400">
-                      AI Career Summary
-                    </h3>
-                  </div>
-
-                  <p className="text-sm md:text-base text-gray-400">
-                    {analysis.aiSummary}
-                  </p>
+                  {analysis.aiError && (
+                    <p className="mt-4 rounded-2xl border border-yellow-400/20 bg-yellow-500/10 p-4 text-sm text-yellow-200">
+                      {analysis.aiError}
+                    </p>
+                  )}
 
                   {aiRecommendations.length > 0 && (
-                    <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="mt-5 grid gap-4 md:grid-cols-3">
                       {aiRecommendations.map((recommendation, index) => (
                         <motion.div
-                          key={index}
-                          initial={{ opacity: 0, y: 16 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.1 }}
-                          className="rounded-xl bg-white/5 border border-white/10 p-4 text-sm md:text-base text-gray-400 hover:bg-white/10 transition"
+                          key={`${recommendation}-${index}`}
+                          variants={fadeUp}
+                          className="group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-5 transition hover:-translate-y-1 hover:border-indigo-400/40 hover:shadow-2xl hover:shadow-indigo-500/10"
                         >
-                          <span className="text-indigo-300 font-semibold">
-                            {index + 1}.
-                          </span>{" "}
-                          {recommendation}
+                          <div className="absolute -right-8 -top-8 h-20 w-20 rounded-full bg-indigo-500/20 blur-2xl transition group-hover:bg-indigo-400/30" />
+                          <div className="relative">
+                            <span className="grid h-9 w-9 place-items-center rounded-2xl bg-indigo-500/20 text-sm font-black text-indigo-200">
+                              {index + 1}
+                            </span>
+                            <p className="mt-4 text-sm leading-6 text-slate-300">
+                              {recommendation}
+                            </p>
+                          </div>
                         </motion.div>
                       ))}
                     </div>
                   )}
                 </Card>
-              </motion.div>
+              </motion.section>
             )}
 
-            {/* ROADMAP TIMELINE */}
-            <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.75 }}
-            >
-              <Card className="mt-8 md:mt-10">
-                <div className="flex items-center gap-2 mb-6">
-                  <Route size={20} className="text-green-300" />
-                  <h3 className="text-lg font-semibold text-green-400">
-                    Week-by-Week Roadmap
-                  </h3>
+            <motion.section variants={fadeUp}>
+              <Card>
+                <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                  <div>
+                    <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-emerald-300">
+                      <Route size={18} aria-hidden="true" />
+                      Week-by-Week Roadmap
+                    </p>
+                    <h3 className="text-2xl font-black text-white">
+                      Your saved learning plan
+                    </h3>
+                    <p className="mt-2 text-sm text-slate-400">
+                      Follow these weeks in order, then open the dashboard to
+                      track task completion.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={openInDashboard}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-5 py-3 text-sm font-semibold text-emerald-200 transition hover:-translate-y-0.5 hover:bg-emerald-500/20"
+                  >
+                    Track Progress
+                    <ExternalLink size={15} aria-hidden="true" />
+                  </button>
                 </div>
 
                 {aiRoadmap.length > 0 ? (
                   <div className="relative">
-                    <div className="absolute left-4 top-2 bottom-2 w-px bg-white/10"></div>
+                    <div className="absolute bottom-4 left-4 top-4 hidden w-px bg-gradient-to-b from-indigo-400/50 via-emerald-400/30 to-transparent sm:block" />
 
-                    <div className="space-y-6">
-                      {aiRoadmap.map((item, i) => (
-                        <motion.div
-                          key={`${item.week}-${item.skill}-${i}`}
-                          initial={{ opacity: 0, x: -22 }}
+                    <div className="space-y-5">
+                      {aiRoadmap.map((item, index) => (
+                        <motion.article
+                          key={`${item.week}-${item.skill}-${index}`}
+                          initial={{ opacity: 0, x: -18 }}
                           animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: i * 0.12 }}
-                          className="relative pl-12"
+                          transition={{ delay: index * 0.08 }}
+                          className="group relative sm:pl-12"
                         >
-                          <div className="absolute left-0 top-1 w-8 h-8 rounded-full bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-300">
-                            {i + 1}
+                          <div className="absolute left-0 top-5 hidden h-9 w-9 place-items-center rounded-2xl border border-indigo-400/30 bg-indigo-500/20 text-sm font-black text-indigo-200 shadow-lg shadow-indigo-500/10 sm:grid">
+                            {index + 1}
                           </div>
 
-                          <div className="p-4 md:p-5 bg-[#0f172a]/80 backdrop-blur-md rounded-xl border border-white/10 hover:border-indigo-500/30 transition">
-                            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                              <h4 className="font-semibold text-indigo-400">
-                                {item.week}: {item.skill}
-                              </h4>
+                          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-slate-950/60 p-5 transition hover:-translate-y-1 hover:border-indigo-400/40 hover:shadow-2xl hover:shadow-indigo-500/10 md:p-6">
+                            <div className="absolute -right-10 -top-10 h-24 w-24 rounded-full bg-indigo-500/10 blur-2xl transition group-hover:bg-indigo-500/20" />
+                            <div className="relative">
+                              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                                <div>
+                                  <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500">
+                                    {item.week || `Week ${index + 1}`}
+                                  </p>
+                                  <h4 className="mt-2 text-xl font-black text-white">
+                                    {item.skill || "Career skill focus"}
+                                  </h4>
+                                </div>
 
-                              <div className="flex flex-wrap gap-2">
-                                {item.difficulty && (
-                                  <AnimatedBadge className="text-xs">
-                                    <Gauge size={13} />
-                                    Difficulty: {item.difficulty}
-                                  </AnimatedBadge>
-                                )}
+                                <div className="flex flex-wrap gap-2">
+                                  {item.difficulty && (
+                                    <AnimatedBadge>
+                                      <Gauge size={13} aria-hidden="true" />
+                                      {item.difficulty}
+                                    </AnimatedBadge>
+                                  )}
 
-                                {item.timeEstimate && (
-                                  <AnimatedBadge
-                                    variant="success"
-                                    className="text-xs"
-                                  >
-                                    <Clock size={13} />
-                                    Time: {item.timeEstimate}
-                                  </AnimatedBadge>
-                                )}
+                                  {item.timeEstimate && (
+                                    <AnimatedBadge variant="success">
+                                      <Clock size={13} aria-hidden="true" />
+                                      {item.timeEstimate}
+                                    </AnimatedBadge>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="mt-5 grid gap-3 md:grid-cols-2">
+                                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                                  <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-indigo-200">
+                                    <Lightbulb size={15} aria-hidden="true" />
+                                    Learn
+                                  </p>
+                                  <p className="text-sm leading-6 text-slate-400">
+                                    {item.learn ||
+                                      "Focus on the main concept for this week."}
+                                  </p>
+                                </div>
+
+                                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                                  <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-emerald-200">
+                                    <Sparkles size={15} aria-hidden="true" />
+                                    How to Learn
+                                  </p>
+                                  <p className="text-sm leading-6 text-slate-400">
+                                    {item.howToLearn ||
+                                      "Practice through docs, videos, and implementation."}
+                                  </p>
+                                </div>
+
+                                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                                  <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-cyan-200">
+                                    <ExternalLink
+                                      size={15}
+                                      aria-hidden="true"
+                                    />
+                                    Free Resource
+                                  </p>
+                                  <p className="text-sm leading-6 text-slate-400">
+                                    {item.resource ||
+                                      "Use a free beginner-friendly resource."}
+                                  </p>
+                                </div>
+
+                                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                                  <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-yellow-200">
+                                    <ChevronRight
+                                      size={15}
+                                      aria-hidden="true"
+                                    />
+                                    Mini Project
+                                  </p>
+                                  <p className="text-sm leading-6 text-slate-400">
+                                    {item.project ||
+                                      "Build a small project to prove this skill."}
+                                  </p>
+                                </div>
                               </div>
                             </div>
-
-                            <p className="text-sm md:text-base text-gray-400 mt-3">
-                              <span className="text-gray-300">Learn:</span>{" "}
-                              {item.learn}
-                            </p>
-
-                            {item.howToLearn && (
-                              <p className="text-sm md:text-base text-gray-400 mt-2">
-                                <span className="text-gray-300">
-                                  How to Learn:
-                                </span>{" "}
-                                {item.howToLearn}
-                              </p>
-                            )}
-
-                            <p className="text-sm md:text-base text-gray-400 mt-2">
-                              <span className="text-gray-300">
-                                Free Resource:
-                              </span>{" "}
-                              {item.resource}
-                            </p>
-
-                            <p className="text-sm md:text-base text-gray-400 mt-2">
-                              <span className="text-gray-300">
-                                Mini Project:
-                              </span>{" "}
-                              {item.project}
-                            </p>
                           </div>
-                        </motion.div>
+                        </motion.article>
                       ))}
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-xl bg-white/5 border border-white/10 p-5">
-                    <p className="text-sm md:text-base text-gray-400">
+                  <div className="rounded-3xl border border-emerald-400/20 bg-emerald-500/10 p-6 text-center">
+                    <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-emerald-500/20 text-emerald-300">
+                      <CheckCircle2 size={28} aria-hidden="true" />
+                    </div>
+                    <h4 className="text-xl font-bold text-white">
+                      No major roadmap gaps found
+                    </h4>
+                    <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-slate-400">
                       Your profile already matches the target role well. Keep
-                      building advanced projects and applying for internships.
+                      building advanced projects, improving interview readiness,
+                      and applying for internships.
                     </p>
                   </div>
                 )}
               </Card>
-            </motion.div>
-          </>
+            </motion.section>
+          </motion.div>
         )}
       </main>
 

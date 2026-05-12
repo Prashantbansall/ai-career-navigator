@@ -132,7 +132,6 @@ describe("Dashboard Page", () => {
   });
 
   it("renders dashboard data from localStorage", async () => {
-
     localStorage.setItem("analysis", JSON.stringify(mockAnalysis));
     renderWithProviders(<Dashboard />, { route: "/dashboard" });
 
@@ -143,6 +142,12 @@ describe("Dashboard Page", () => {
     expect(screen.getAllByText("SDE").length).toBeGreaterThan(0);
 
     expect(screen.getAllByText(/67%/i).length).toBeGreaterThan(0);
+
+    expect(
+      screen.getByText(/Dashboard Progress Snapshot/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Roadmap completion/i)).toBeInTheDocument();
+    expect(screen.getByText(/Remaining skill gaps/i)).toBeInTheDocument();
 
     expect(screen.getAllByText(/Node.js/i).length).toBeGreaterThan(0);
 
@@ -179,7 +184,6 @@ describe("Dashboard Page", () => {
   });
 
   it("shows Export PDF button when analysis exists", async () => {
-
     localStorage.setItem("analysis", JSON.stringify(mockAnalysis));
     renderWithProviders(<Dashboard />, { route: "/dashboard" });
 
@@ -288,6 +292,59 @@ describe("Dashboard Page", () => {
     expect(screen.getAllByText(/System Design/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Node.js/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/68%/i).length).toBeGreaterThan(0);
+  });
+
+  it("lets users mark roadmap tasks as complete", async () => {
+    const user = userEvent.setup();
+
+    localStorage.setItem("analysis", JSON.stringify(mockAnalysis));
+    renderWithProviders(<Dashboard />, { route: "/dashboard" });
+
+    expect(
+      await screen.findByRole("heading", { name: /Roadmap Progress/i }),
+    ).toBeInTheDocument();
+
+    const learnTaskButton = await screen.findByRole("button", {
+      name: /Mark complete Learn for Week 1/i,
+    });
+
+    await user.click(learnTaskButton);
+
+    expect(
+      await screen.findByRole("button", {
+        name: /Mark incomplete Learn for Week 1/i,
+      }),
+    ).toBeInTheDocument();
+
+    expect(screen.getByText(/1\/4 tasks done/i)).toBeInTheDocument();
+  });
+
+  it("updates dashboard progress widgets when a roadmap week is completed", async () => {
+    const user = userEvent.setup();
+
+    localStorage.setItem("analysis", JSON.stringify(mockAnalysis));
+    renderWithProviders(<Dashboard />, { route: "/dashboard" });
+
+    expect(
+      await screen.findByText(/Dashboard Progress Snapshot/i),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/0% roadmap complete/i).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getByText(/0\/1/)).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: /Mark Week Complete/i }),
+    );
+
+    expect(await screen.findByText(/4\/4 tasks done/i)).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/100% roadmap complete/i).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText(/1\/1/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Reset Week/i }),
+    ).toBeInTheDocument();
   });
 
   it("shows sign-in prompt when user is not authenticated", async () => {

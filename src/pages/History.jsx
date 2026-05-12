@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../components/layout/Navbar";
 import GradientBackground from "../components/layout/GradientBackground";
@@ -35,12 +35,45 @@ import {
   Sparkles,
   ShieldCheck,
   Loader2,
+  SlidersHorizontal,
+  ArrowUpDown,
+  CalendarDays,
+  Target,
+  TrendingUp,
+  FolderOpen,
+  ChevronRight,
 } from "lucide-react";
+
+const roles = [
+  "All",
+  "SDE",
+  "AI/ML",
+  "Data Science",
+  "DevOps",
+  "Frontend",
+  "Backend",
+];
+
+const readinessRanges = [
+  { label: "All scores", value: "all", min: 0, max: 100 },
+  { label: "Job ready", value: "ready", min: 71, max: 100 },
+  { label: "Almost ready", value: "almost", min: 41, max: 70 },
+  { label: "Needs focus", value: "focus", min: 0, max: 40 },
+];
+
+const sortOptions = [
+  { label: "Newest first", value: "newest" },
+  { label: "Oldest first", value: "oldest" },
+  { label: "Highest readiness", value: "readiness-high" },
+  { label: "Lowest readiness", value: "readiness-low" },
+];
 
 export default function History() {
   const [history, setHistory] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
+  const [readinessFilter, setReadinessFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("newest");
   const { isAuthenticated } = useAuth();
 
   const [page, setPage] = useState(1);
@@ -69,16 +102,23 @@ export default function History() {
     hidden: {},
     visible: {
       transition: {
-        staggerChildren: 0.1,
+        staggerChildren: 0.08,
       },
     },
   };
+
+  const selectedReadinessRange = useMemo(
+    () => readinessRanges.find((range) => range.value === readinessFilter),
+    [readinessFilter],
+  );
 
   const fetchHistory = async ({
     pageToLoad = 1,
     append = false,
     search = searchTerm,
     role = roleFilter,
+    readiness = readinessFilter,
+    sort = sortBy,
   } = {}) => {
     try {
       if (append) {
@@ -89,9 +129,23 @@ export default function History() {
 
       setError("");
 
+      const activeRange = readinessRanges.find(
+        (range) => range.value === readiness,
+      );
+
       const data = await getAnalysisHistoryAPI({
         search,
         role,
+        readinessRange: readiness,
+        minReadiness:
+          activeRange && activeRange.value !== "all"
+            ? activeRange.min
+            : undefined,
+        maxReadiness:
+          activeRange && activeRange.value !== "all"
+            ? activeRange.max
+            : undefined,
+        sort,
         page: pageToLoad,
         limit,
       });
@@ -138,11 +192,11 @@ export default function History() {
       append: false,
       search: searchTerm,
       role: roleFilter,
+      readiness: readinessFilter,
+      sort: sortBy,
     });
 
-    if (searchTerm.trim()) {
-      toast.success("Search applied");
-    }
+    toast.success("History workspace updated");
   };
 
   const handleRoleChange = (role) => {
@@ -153,6 +207,34 @@ export default function History() {
       append: false,
       search: searchTerm,
       role,
+      readiness: readinessFilter,
+      sort: sortBy,
+    });
+  };
+
+  const handleReadinessChange = (readiness) => {
+    setReadinessFilter(readiness);
+
+    fetchHistory({
+      pageToLoad: 1,
+      append: false,
+      search: searchTerm,
+      role: roleFilter,
+      readiness,
+      sort: sortBy,
+    });
+  };
+
+  const handleSortChange = (sort) => {
+    setSortBy(sort);
+
+    fetchHistory({
+      pageToLoad: 1,
+      append: false,
+      search: searchTerm,
+      role: roleFilter,
+      readiness: readinessFilter,
+      sort,
     });
   };
 
@@ -164,6 +246,8 @@ export default function History() {
       append: true,
       search: searchTerm,
       role: roleFilter,
+      readiness: readinessFilter,
+      sort: sortBy,
     });
   };
 
@@ -182,7 +266,7 @@ export default function History() {
         },
       });
 
-      toast.success("Analysis opened successfully");
+      toast.success("Analysis opened in dashboard");
     } catch (err) {
       const message = err.message || "Failed to open analysis.";
       setError(message);
@@ -208,7 +292,7 @@ export default function History() {
       setHistory((prev) => prev.filter((item) => item._id !== deleteTargetId));
       setTotal((prev) => Math.max(prev - 1, 0));
 
-      toast.success("Analysis deleted successfully");
+      toast.success("Analysis deleted from history");
       setDeleteTargetId(null);
     } catch (err) {
       const message = err.message || "Failed to delete analysis.";
@@ -242,31 +326,50 @@ export default function History() {
     return "success";
   };
 
+  const getScoreLabel = (score) => {
+    if (score <= 40) return "Needs Focus";
+    if (score <= 70) return "Almost Ready";
+    return "Job Ready";
+  };
+
   const clearFilters = async () => {
     setSearchTerm("");
     setRoleFilter("All");
+    setReadinessFilter("all");
+    setSortBy("newest");
 
     await fetchHistory({
       pageToLoad: 1,
       append: false,
       search: "",
       role: "All",
+      readiness: "all",
+      sort: "newest",
     });
 
     toast.success("Filters cleared");
   };
 
-  const filtersActive = searchTerm.trim() !== "" || roleFilter !== "All";
+  const filtersActive =
+    searchTerm.trim() !== "" ||
+    roleFilter !== "All" ||
+    readinessFilter !== "all" ||
+    sortBy !== "newest";
 
-  const roles = [
-    "All",
-    "SDE",
-    "AI/ML",
-    "Data Science",
-    "DevOps",
-    "Frontend",
-    "Backend",
-  ];
+  const averageReadiness = history.length
+    ? Math.round(
+        history.reduce((sum, item) => sum + Number(item.jobReadiness || 0), 0) /
+          history.length,
+      )
+    : 0;
+
+  const bestReadiness = history.length
+    ? Math.max(...history.map((item) => Number(item.jobReadiness || 0)))
+    : 0;
+
+  const latestAnalysisDate = history[0]?.createdAt
+    ? formatDate(history[0].createdAt)
+    : "No saved analysis";
 
   return (
     <GradientBackground>
@@ -274,86 +377,117 @@ export default function History() {
 
       <main className="max-w-7xl mx-auto px-4 mt-8 md:mt-10 pb-20">
         {/* HEADER */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            animate="visible"
-          >
-            <motion.p
-              variants={fadeUp}
-              transition={{ duration: 0.45 }}
-              className="inline-flex items-center gap-2 text-sm text-indigo-300 mb-2"
-            >
-              <Database size={16} aria-hidden="true" />
-              Saved resume analysis history
-            </motion.p>
+        <motion.section
+          initial={{ opacity: 0, y: 22 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45 }}
+          className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 md:p-8 mb-8 shadow-2xl shadow-indigo-950/20"
+        >
+          <div className="absolute -top-24 -right-20 h-72 w-72 rounded-full bg-indigo-500/20 blur-3xl" />
+          <div className="absolute -bottom-28 -left-24 h-72 w-72 rounded-full bg-green-500/10 blur-3xl" />
 
-            <motion.h2
-              variants={fadeUp}
-              transition={{ duration: 0.5 }}
-              className="text-2xl md:text-4xl font-bold"
-            >
-              Analysis History
-            </motion.h2>
+          <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+            <div className="max-w-3xl">
+              <p className="inline-flex items-center gap-2 rounded-full border border-indigo-400/20 bg-indigo-500/10 px-4 py-2 text-sm font-medium text-indigo-200 mb-5">
+                <Database size={16} aria-hidden="true" />
+                Saved-analysis workspace
+              </p>
 
-            <motion.p
-              variants={fadeUp}
-              transition={{ duration: 0.55 }}
-              className="text-sm md:text-base text-gray-400 mt-2"
-            >
-              View, reopen, search, filter, or delete your previous resume
-              analysis results.
-            </motion.p>
-          </motion.div>
+              <h2 className="text-3xl md:text-5xl font-black tracking-tight text-white">
+                Analysis History
+              </h2>
 
-          <motion.button
-            type="button"
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45 }}
-            onClick={() =>
-              fetchHistory({
-                pageToLoad: 1,
-                append: false,
-                search: searchTerm,
-                role: roleFilter,
-              })
-            }
-            disabled={loading}
-            aria-label="Refresh analysis history"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm transition w-fit disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            <RefreshCcw
-              size={16}
-              aria-hidden="true"
-              className={loading ? "animate-spin" : ""}
-            />
-            {loading ? "Refreshing..." : "Refresh"}
-          </motion.button>
-        </div>
+              <p className="text-sm md:text-lg text-gray-400 mt-4 leading-relaxed">
+                Search saved resumes, compare readiness scores, reopen previous
+                dashboards, and clean up old analyses from one premium
+                workspace.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-3 lg:w-72">
+              <div className="rounded-2xl border border-white/10 bg-[#0f1224]/70 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-gray-500">
+                  Saved
+                </p>
+                <p className="mt-1 text-2xl font-bold text-white">{total}</p>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-[#0f1224]/70 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-gray-500">
+                  Avg readiness
+                </p>
+                <p className="mt-1 text-2xl font-bold text-green-300">
+                  {averageReadiness}%
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  fetchHistory({
+                    pageToLoad: 1,
+                    append: false,
+                    search: searchTerm,
+                    role: roleFilter,
+                    readiness: readinessFilter,
+                    sort: sortBy,
+                  })
+                }
+                disabled={loading}
+                aria-label="Refresh analysis history"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm font-semibold text-gray-100 transition hover:-translate-y-0.5 hover:border-indigo-400/40 hover:shadow-lg hover:shadow-indigo-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <RefreshCcw
+                  size={16}
+                  aria-hidden="true"
+                  className={loading ? "animate-spin" : ""}
+                />
+                {loading ? "Refreshing..." : "Refresh"}
+              </button>
+            </div>
+          </div>
+        </motion.section>
 
         {/* SEARCH + FILTER */}
-        <motion.div
+        <motion.section
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
           <Card className="mb-8">
-            <div className="flex items-center gap-2 text-indigo-300 mb-5">
-              <Search size={18} aria-hidden="true" />
-              <h3 className="text-lg font-semibold text-indigo-400">
-                Search & Filter
-              </h3>
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+              <div>
+                <div className="flex items-center gap-2 text-indigo-300">
+                  <SlidersHorizontal size={18} aria-hidden="true" />
+                  <h3 className="text-lg font-semibold text-indigo-300">
+                    Search, Filter & Sort
+                  </h3>
+                </div>
+                <p className="text-sm text-gray-400 mt-2">
+                  Narrow your saved analyses by resume, role, readiness range,
+                  or timeline.
+                </p>
+              </div>
+
+              {filtersActive && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  aria-label="Clear history filters"
+                  className="inline-flex w-fit items-center justify-center gap-2 rounded-xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-500/20"
+                >
+                  <X size={16} aria-hidden="true" />
+                  Clear Filters
+                </button>
+              )}
             </div>
 
             <form
               onSubmit={handleSearchSubmit}
-              className="flex flex-col md:flex-row md:items-end gap-4"
+              className="grid grid-cols-1 lg:grid-cols-12 gap-4"
               aria-label="Search and filter analysis history"
             >
-              {/* Search */}
-              <div className="flex-1">
+              <div className="lg:col-span-5">
                 <label
                   htmlFor="history-search"
                   className="flex items-center gap-2 text-sm text-gray-300 mb-2"
@@ -375,21 +509,20 @@ export default function History() {
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Search by resume name, role, AI provider, or source..."
+                    placeholder="Search resume, role, provider..."
                     aria-label="Search analysis history"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3 text-gray-200 placeholder:text-gray-500 focus:outline-none focus:border-indigo-400 transition"
+                    className="w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-11 pr-4 text-gray-200 placeholder:text-gray-500 transition focus:border-indigo-400 focus:outline-none"
                   />
                 </div>
               </div>
 
-              {/* Role Filter */}
-              <div className="w-full md:w-64">
+              <div className="lg:col-span-2">
                 <label
                   htmlFor="history-role-filter"
                   className="flex items-center gap-2 text-sm text-gray-300 mb-2"
                 >
-                  <Filter size={15} aria-hidden="true" />
-                  Filter by Role
+                  <Target size={15} aria-hidden="true" />
+                  Target Role
                 </label>
 
                 <select
@@ -398,7 +531,7 @@ export default function History() {
                   value={roleFilter}
                   onChange={(e) => handleRoleChange(e.target.value)}
                   aria-label="Filter analysis history by target role"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-gray-200 focus:outline-none focus:border-indigo-400 transition"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-gray-200 transition focus:border-indigo-400 focus:outline-none"
                 >
                   {roles.map((role) => (
                     <option key={role} value={role} className="bg-[#0f172a]">
@@ -408,31 +541,77 @@ export default function History() {
                 </select>
               </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                aria-label="Search analysis history"
-                className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed rounded-xl text-sm text-white transition"
-              >
-                <Search size={16} aria-hidden="true" />
-                Search
-              </button>
-
-              {/* Clear Filters */}
-              {filtersActive && (
-                <button
-                  type="button"
-                  onClick={clearFilters}
-                  aria-label="Clear history search and role filters"
-                  className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-red-500/20 text-red-300 hover:bg-red-500/30 rounded-xl text-sm transition"
+              <div className="lg:col-span-2">
+                <label
+                  htmlFor="history-readiness-filter"
+                  className="flex items-center gap-2 text-sm text-gray-300 mb-2"
                 >
-                  <X size={16} aria-hidden="true" />
-                  Clear
+                  <BarChart3 size={15} aria-hidden="true" />
+                  Readiness
+                </label>
+
+                <select
+                  id="history-readiness-filter"
+                  name="historyReadinessFilter"
+                  value={readinessFilter}
+                  onChange={(e) => handleReadinessChange(e.target.value)}
+                  aria-label="Filter analysis history by readiness score range"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-gray-200 transition focus:border-indigo-400 focus:outline-none"
+                >
+                  {readinessRanges.map((range) => (
+                    <option
+                      key={range.value}
+                      value={range.value}
+                      className="bg-[#0f172a]"
+                    >
+                      {range.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="lg:col-span-2">
+                <label
+                  htmlFor="history-sort"
+                  className="flex items-center gap-2 text-sm text-gray-300 mb-2"
+                >
+                  <ArrowUpDown size={15} aria-hidden="true" />
+                  Sort By
+                </label>
+
+                <select
+                  id="history-sort"
+                  name="historySort"
+                  value={sortBy}
+                  onChange={(e) => handleSortChange(e.target.value)}
+                  aria-label="Sort analysis history"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-gray-200 transition focus:border-indigo-400 focus:outline-none"
+                >
+                  {sortOptions.map((option) => (
+                    <option
+                      key={option.value}
+                      value={option.value}
+                      className="bg-[#0f172a]"
+                    >
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="lg:col-span-1 flex lg:items-end">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  aria-label="Apply history search and filters"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-600 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Search size={16} aria-hidden="true" />
+                  <span className="lg:hidden">Apply Filters</span>
                 </button>
-              )}
+              </div>
             </form>
 
-            {/* Result count */}
             {!loading && (
               <div
                 className="flex flex-wrap items-center gap-2 mt-5"
@@ -455,6 +634,20 @@ export default function History() {
                   </AnimatedBadge>
                 )}
 
+                {readinessFilter !== "all" && selectedReadinessRange && (
+                  <AnimatedBadge variant="warning">
+                    Score: {selectedReadinessRange.min}-
+                    {selectedReadinessRange.max}%
+                  </AnimatedBadge>
+                )}
+
+                {sortBy !== "newest" && (
+                  <AnimatedBadge>
+                    Sort:{" "}
+                    {sortOptions.find((item) => item.value === sortBy)?.label}
+                  </AnimatedBadge>
+                )}
+
                 {searchTerm.trim() && (
                   <AnimatedBadge variant="warning">
                     Search: {searchTerm}
@@ -463,7 +656,7 @@ export default function History() {
               </div>
             )}
           </Card>
-        </motion.div>
+        </motion.section>
 
         {/* ERROR */}
         {error && (
@@ -522,7 +715,7 @@ export default function History() {
             transition={{ duration: 0.45 }}
           >
             <EmptyState
-              icon={filtersActive ? Search : FileText}
+              icon={filtersActive ? Search : FolderOpen}
               title={
                 filtersActive
                   ? "No Matching Results"
@@ -530,15 +723,15 @@ export default function History() {
               }
               description={
                 filtersActive
-                  ? "No saved analysis matches your current search or role filter. Try changing the keyword, selecting another role, or clearing the filters."
-                  : "Your account has no saved analyses yet. Upload a resume and generate a roadmap to see your personal analysis history here."
+                  ? "No saved analysis matches your current search, role, readiness range, or sort view. Try a wider score range or clear filters."
+                  : "Your account has no saved analyses yet. Upload a resume and generate a roadmap to build your personal saved-analysis workspace."
               }
               action={
                 filtersActive ? (
                   <button
                     type="button"
                     onClick={clearFilters}
-                    aria-label="Clear history search and role filters"
+                    aria-label="Clear history filters"
                     className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm transition hover:bg-white/10"
                   >
                     <X size={16} aria-hidden="true" />
@@ -561,91 +754,155 @@ export default function History() {
         {/* HISTORY GRID */}
         {isAuthenticated && !loading && history.length > 0 && (
           <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <Card className="p-5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-200">
+                    <CalendarDays size={20} aria-hidden="true" />
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.18em] text-gray-500">
+                      Latest
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-gray-200">
+                      {latestAnalysisDate}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-green-400/20 bg-green-500/10 text-green-200">
+                    <TrendingUp size={20} aria-hidden="true" />
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.18em] text-gray-500">
+                      Best Score
+                    </p>
+                    <p className="mt-1 text-2xl font-bold text-green-300">
+                      {bestReadiness}%
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-purple-400/20 bg-purple-500/10 text-purple-200">
+                    <Target size={20} aria-hidden="true" />
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.18em] text-gray-500">
+                      Current View
+                    </p>
+                    <p className="mt-1 text-2xl font-bold text-white">
+                      {history.length}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+
             <motion.div
               variants={staggerContainer}
               initial="hidden"
               animate="visible"
               className="grid grid-cols-1 lg:grid-cols-2 gap-6"
             >
-              {history.map((item) => (
-                <motion.div
-                  key={item._id}
-                  variants={fadeUp}
-                  transition={{ duration: 0.45 }}
-                >
-                  <Card>
-                    <div className="flex flex-col gap-5">
-                      {/* TOP */}
-                      <div className="flex items-start justify-between gap-4">
+              {history.map((item) => {
+                const score = Number(item.jobReadiness || 0);
+
+                return (
+                  <motion.article
+                    key={item._id}
+                    variants={fadeUp}
+                    transition={{ duration: 0.45 }}
+                    className="group relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[0.035] p-5 md:p-6 shadow-xl shadow-black/10 transition duration-300 hover:-translate-y-1 hover:border-indigo-400/40 hover:shadow-indigo-500/10"
+                  >
+                    <div className="pointer-events-none absolute -top-16 -left-16 h-40 w-40 rounded-full bg-indigo-500/10 opacity-0 blur-3xl transition duration-300 group-hover:opacity-100" />
+                    <div className="pointer-events-none absolute -bottom-16 -right-16 h-40 w-40 rounded-full bg-green-500/10 opacity-0 blur-3xl transition duration-300 group-hover:opacity-100" />
+
+                    <div className="relative flex flex-col gap-5">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2 text-indigo-300 mb-2">
+                          <div className="flex items-center gap-2 text-indigo-300 mb-3">
                             <FileText size={18} aria-hidden="true" />
                             <p className="text-sm truncate">
                               {item.resumeName || "Untitled Resume"}
                             </p>
                           </div>
 
-                          <h3 className="text-xl font-semibold text-gray-100">
-                            {item.targetRole}
-                          </h3>
-
-                          <p className="text-sm text-gray-400 mt-1">
-                            {item.roleTitle || "Target role analysis"}
-                          </p>
-                        </div>
-
-                        <AnimatedBadge
-                          variant={getScoreVariant(item.jobReadiness)}
-                        >
-                          {item.jobReadiness}% Ready
-                        </AnimatedBadge>
-                      </div>
-
-                      {/* META */}
-                      <div className="flex flex-wrap gap-2">
-                        <AnimatedBadge
-                          variant={
-                            item.roadmapSource === "ai" ? "success" : "warning"
-                          }
-                        >
-                          {item.roadmapSource === "ai"
-                            ? `${item.aiProviderUsed || "AI"} Powered`
-                            : "Fallback"}
-                        </AnimatedBadge>
-
-                        <AnimatedBadge>
-                          <Clock size={13} aria-hidden="true" />
-                          {formatDate(item.createdAt)}
-                        </AnimatedBadge>
-                      </div>
-
-                      {/* MINI STATS */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="rounded-xl bg-white/5 border border-white/10 p-4">
-                          <div className="flex items-center gap-2 text-green-300 mb-1">
-                            <BarChart3 size={16} aria-hidden="true" />
-                            <p className="text-sm">Readiness</p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <AnimatedBadge>{item.targetRole}</AnimatedBadge>
+                            <AnimatedBadge
+                              variant={
+                                item.roadmapSource === "ai"
+                                  ? "success"
+                                  : "warning"
+                              }
+                            >
+                              {item.roadmapSource === "ai"
+                                ? `${item.aiProviderUsed || "AI"} Powered`
+                                : "Fallback"}
+                            </AnimatedBadge>
                           </div>
-                          <p className="text-2xl font-bold">
-                            {item.jobReadiness}%
+
+                          <h3 className="mt-4 text-xl md:text-2xl font-bold text-gray-100">
+                            {item.roleTitle || "Target role analysis"}
+                          </h3>
+                        </div>
+
+                        <div className="shrink-0 rounded-2xl border border-white/10 bg-[#0b1022]/80 px-5 py-4 text-center">
+                          <p className="text-xs uppercase tracking-[0.18em] text-gray-500">
+                            Ready
+                          </p>
+                          <p className="mt-2 text-3xl font-black text-green-300">
+                            {score}%
+                          </p>
+                          <AnimatedBadge
+                            variant={getScoreVariant(score)}
+                            className="mt-4"
+                          >
+                            {getScoreLabel(score)}
+                          </AnimatedBadge>
+                        </div>
+                      </div>
+
+                      <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                        <div
+                          className="h-full rounded-full bg-green-400"
+                          style={{
+                            width: `${Math.min(Math.max(score, 0), 100)}%`,
+                          }}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                          <div className="flex items-center gap-2 text-indigo-300 mb-1">
+                            <Clock size={16} aria-hidden="true" />
+                            <p className="text-sm">Created</p>
+                          </div>
+                          <p className="text-sm font-semibold text-gray-200">
+                            {formatDate(item.createdAt)}
                           </p>
                         </div>
 
-                        <div className="rounded-xl bg-white/5 border border-white/10 p-4">
+                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                           <div className="flex items-center gap-2 text-indigo-300 mb-1">
                             <Brain size={16} aria-hidden="true" />
-                            <p className="text-sm">AI Provider</p>
+                            <p className="text-sm">Engine</p>
                           </div>
-                          <p className="text-lg font-semibold capitalize">
+                          <p className="text-sm font-semibold capitalize text-gray-200">
                             {item.aiProviderUsed || "Fallback"}
                           </p>
                         </div>
                       </div>
 
-                      {/* STATUS STRIP */}
-                      <div className="rounded-xl bg-white/5 border border-white/10 p-4">
+                      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                         <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-300 shrink-0">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-indigo-500/30 bg-indigo-500/20 text-indigo-300">
                             {item.roadmapSource === "ai" ? (
                               <Sparkles size={18} aria-hidden="true" />
                             ) : (
@@ -656,29 +913,25 @@ export default function History() {
                           <div>
                             <h4 className="font-semibold text-gray-100">
                               {item.roadmapSource === "ai"
-                                ? "AI-generated roadmap"
-                                : "Fallback roadmap"}
+                                ? "AI-generated career roadmap"
+                                : "Rule-based career roadmap"}
                             </h4>
 
                             <p className="text-sm text-gray-400 mt-1">
-                              {item.roadmapSource === "ai"
-                                ? `Generated using ${
-                                    item.aiProviderUsed || "AI"
-                                  } provider.`
-                                : "Generated using the rule-based recommendation engine."}
+                              Open this saved analysis to review skill gaps,
+                              roadmap weeks, recommendations, and PDF export.
                             </p>
                           </div>
                         </div>
                       </div>
 
-                      {/* ACTIONS */}
-                      <div className="flex flex-col sm:flex-row gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 pt-1">
                         <Link
                           to={`/analysis/${item._id}`}
                           aria-label={`View details for ${
                             item.resumeName || item.targetRole
                           } analysis`}
-                          className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-gray-200 transition flex-1"
+                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-gray-200 transition hover:border-indigo-400/40 hover:bg-white/10"
                         >
                           <Eye size={16} aria-hidden="true" />
                           View Detail
@@ -691,9 +944,17 @@ export default function History() {
                           aria-label={`Open dashboard for ${
                             item.resumeName || item.targetRole
                           } analysis`}
-                          className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed rounded-xl text-white transition flex-1"
+                          className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-500 px-4 py-3 font-semibold text-white transition hover:bg-indigo-600 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          <Eye size={16} aria-hidden="true" />
+                          {openingId === item._id ? (
+                            <Loader2
+                              size={16}
+                              aria-hidden="true"
+                              className="animate-spin"
+                            />
+                          ) : (
+                            <ChevronRight size={16} aria-hidden="true" />
+                          )}
                           {openingId === item._id
                             ? "Opening..."
                             : "Open Dashboard"}
@@ -706,19 +967,28 @@ export default function History() {
                           aria-label={`Delete ${
                             item.resumeName || item.targetRole
                           } analysis`}
-                          className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-red-500/20 text-red-300 hover:bg-red-500/30 disabled:opacity-60 disabled:cursor-not-allowed rounded-xl transition"
+                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-red-200 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          <Trash2 size={16} aria-hidden="true" />
-                          {deletingId === item._id ? "Deleting..." : "Delete"}
+                          {deletingId === item._id ? (
+                            <Loader2
+                              size={16}
+                              aria-hidden="true"
+                              className="animate-spin"
+                            />
+                          ) : (
+                            <Trash2 size={16} aria-hidden="true" />
+                          )}
+                          <span className="sm:hidden lg:inline">
+                            {deletingId === item._id ? "Deleting..." : "Delete"}
+                          </span>
                         </button>
                       </div>
                     </div>
-                  </Card>
-                </motion.div>
-              ))}
+                  </motion.article>
+                );
+              })}
             </motion.div>
 
-            {/* LOAD MORE */}
             {hasMore && (
               <div className="mt-8 flex justify-center">
                 <button
@@ -726,7 +996,7 @@ export default function History() {
                   onClick={loadMore}
                   disabled={loadingMore}
                   aria-label="Load more analysis history results"
-                  className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm transition disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3 text-sm font-semibold transition hover:-translate-y-0.5 hover:border-indigo-400/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {loadingMore ? (
                     <>
@@ -752,10 +1022,10 @@ export default function History() {
 
       <ConfirmModal
         isOpen={Boolean(deleteTargetId)}
-        title="Delete this analysis?"
-        message="This will permanently remove this saved resume analysis from your history."
+        title="Delete this saved analysis?"
+        message="This will permanently remove this resume analysis from your history. Your other saved analyses will not be affected."
         confirmText="Delete Analysis"
-        cancelText="Keep It"
+        cancelText="Keep Analysis"
         loading={Boolean(deletingId)}
         onConfirm={confirmDeleteAnalysis}
         onCancel={cancelDeleteAnalysis}

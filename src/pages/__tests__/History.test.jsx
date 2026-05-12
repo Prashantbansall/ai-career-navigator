@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor } from "../../test/test-utils";
+import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "../../test/test-utils";
 import History from "../History";
 import { getAnalysisHistoryAPI } from "../../services/api";
@@ -99,5 +100,115 @@ describe("History Page", () => {
     expect(await screen.findByText(/PrashantResume.pdf/i)).toBeInTheDocument();
     expect(screen.getAllByText(/SDE/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/67%/i).length).toBeGreaterThan(0);
+  });
+
+  it("applies search, target role, readiness, and sort filters", async () => {
+    const user = userEvent.setup();
+
+    mockAuthUser();
+
+    getAnalysisHistoryAPI.mockResolvedValue({
+      analyses: [
+        {
+          _id: "analysis-1",
+          resumeName: "PrashantResume.pdf",
+          targetRole: "SDE",
+          roleTitle: "Software Development Engineer",
+          jobReadiness: 82,
+          roadmapSource: "ai",
+          aiProviderUsed: "gemini",
+          createdAt: "2026-05-10T10:00:00.000Z",
+        },
+      ],
+      total: 1,
+      count: 1,
+      page: 1,
+      pages: 1,
+      hasMore: false,
+    });
+
+    renderWithProviders(<History />, { route: "/history" });
+
+    expect(await screen.findByText(/PrashantResume.pdf/i)).toBeInTheDocument();
+
+    await user.type(
+      screen.getByLabelText(/Search analysis history/i),
+      "Prashant",
+    );
+    await user.selectOptions(
+      screen.getByLabelText(/Filter analysis history by target role/i),
+      "SDE",
+    );
+    await user.selectOptions(
+      screen.getByLabelText(
+        /Filter analysis history by readiness score range/i,
+      ),
+      "ready",
+    );
+    await user.selectOptions(
+      screen.getByLabelText(/Sort analysis history/i),
+      "readiness-high",
+    );
+    await user.click(
+      screen.getByRole("button", { name: /Apply history search and filters/i }),
+    );
+
+    await waitFor(() => {
+      expect(getAnalysisHistoryAPI).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          search: "Prashant",
+          role: "SDE",
+          readinessRange: "ready",
+          minReadiness: 71,
+          maxReadiness: 100,
+          sort: "readiness-high",
+        }),
+      );
+    });
+
+    expect(
+      screen.getByRole("button", { name: /Clear history filters/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("opens delete confirmation before removing a saved analysis", async () => {
+    const user = userEvent.setup();
+
+    mockAuthUser();
+
+    getAnalysisHistoryAPI.mockResolvedValueOnce({
+      analyses: [
+        {
+          _id: "analysis-1",
+          resumeName: "DeleteMe.pdf",
+          targetRole: "DevOps",
+          roleTitle: "DevOps Engineer",
+          jobReadiness: 35,
+          roadmapSource: "ai",
+          aiProviderUsed: "gemini",
+          createdAt: "2026-05-10T10:00:00.000Z",
+        },
+      ],
+      total: 1,
+      count: 1,
+      page: 1,
+      pages: 1,
+      hasMore: false,
+    });
+
+    renderWithProviders(<History />, { route: "/history" });
+
+    expect(await screen.findByText(/DeleteMe.pdf/i)).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: /Delete DeleteMe.pdf/i }),
+    );
+
+    expect(screen.getByText(/Delete this saved analysis/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /This will permanently remove this resume analysis from your history/i,
+      ),
+    ).toBeInTheDocument();
   });
 });

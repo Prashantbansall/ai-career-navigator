@@ -11,6 +11,7 @@ import { getAnalysisHistoryAPI, deleteAnalysisAPI } from "../../services/api";
 vi.mock("../../services/api", () => ({
   getAnalysisHistoryAPI: vi.fn(),
   deleteAnalysisAPI: vi.fn(),
+  getAnalysisByIdAPI: vi.fn(),
 }));
 
 vi.mock("react-hot-toast", () => ({

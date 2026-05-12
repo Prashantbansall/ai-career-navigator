@@ -9,6 +9,8 @@ const Home = lazy(() => import("./pages/Home"));
 const Upload = lazy(() => import("./pages/Upload"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const History = lazy(() => import("./pages/History"));
+const Profile = lazy(() => import("./pages/Profile"));
+const ResumeProfiles = lazy(() => import("./pages/ResumeProfiles"));
 const AnalysisDetail = lazy(() => import("./pages/AnalysisDetail"));
 const CommunityDashboard = lazy(() => import("./pages/CommunityDashboard"));
 const SignIn = lazy(() => import("./pages/SignIn"));
@@ -64,6 +66,8 @@ function App() {
               <Route path="/upload" element={<Upload />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/history" element={<History />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/resume-profiles" element={<ResumeProfiles />} />
               <Route path="/community" element={<CommunityDashboard />} />
               <Route path="/analysis" element={<AnalysisMissing />} />
               <Route path="/analysis/:id" element={<AnalysisDetail />} />

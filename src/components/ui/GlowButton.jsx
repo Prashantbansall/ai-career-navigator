@@ -11,14 +11,10 @@ export default function GlowButton({
   ...props
 }) {
   const innerStyles = {
-    primary:
-      "bg-[#0f172a] text-white hover:bg-[#111827]",
-    solid:
-      "bg-indigo-500 text-white hover:bg-indigo-600",
-    danger:
-      "bg-red-500/20 text-red-300 hover:bg-red-500/30",
-    subtle:
-      "bg-white/10 text-slate-100 hover:bg-white/15",
+    primary: "bg-[#0f172a] text-white hover:bg-[#111827]",
+    solid: "bg-indigo-500 text-white hover:bg-indigo-600",
+    danger: "bg-red-500/20 text-red-300 hover:bg-red-500/30",
+    subtle: "bg-white/10 text-slate-100 hover:bg-white/15",
   };
 
   const buttonContent = (
@@ -36,16 +32,20 @@ export default function GlowButton({
       <span className="absolute inset-0 hidden rounded-2xl bg-slate-950/20 blur-xl transition duration-200 group-hover:bg-slate-950/30"></span>
 
       <span
-        className={`relative z-10 inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3 font-semibold shadow-lg shadow-indigo-500/20 transition duration-200  ${innerStyles[variant]}`}
+        className={`relative z-10 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-3 font-semibold shadow-lg shadow-indigo-500/20 transition duration-200  ${innerStyles[variant]}`}
       >
         {children}
       </span>
     </span>
   );
 
+  const wrapperClassName = className.includes("w-full")
+    ? "block w-full"
+    : "inline-block";
+
   if (to) {
     return (
-      <Link to={to} className="inline-block" {...props}>
+      <Link to={to} className={wrapperClassName} {...props}>
         {buttonContent}
       </Link>
     );
@@ -56,7 +56,7 @@ export default function GlowButton({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className="inline-block"
+      className={wrapperClassName}
       {...props}
     >
       {buttonContent}

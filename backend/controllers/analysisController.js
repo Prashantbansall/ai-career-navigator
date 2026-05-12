@@ -31,13 +31,42 @@ const parsePositiveNumber = (value, fallback) => {
   return number;
 };
 
+const parseScoreNumber = (value, fallback) => {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return fallback;
+  }
+
+  return Math.min(Math.max(number, 0), 100);
+};
+
+const getSortOption = (sort = "newest") => {
+  const sortMap = {
+    newest: { createdAt: -1 },
+    oldest: { createdAt: 1 },
+    "readiness-high": { jobReadiness: -1, createdAt: -1 },
+    "readiness-low": { jobReadiness: 1, createdAt: -1 },
+  };
+
+  return sortMap[sort] || sortMap.newest;
+};
+
 /**
  * GET /api/analysis
  *
  * Fetches only the logged-in user's saved analyses.
  */
 export const getAllAnalyses = asyncHandler(async (req, res) => {
-  const { search = "", role = "All", page = 1, limit = 6 } = req.query;
+  const {
+    search = "",
+    role = "All",
+    minReadiness,
+    maxReadiness,
+    sort = "newest",
+    page = 1,
+    limit = 6,
+  } = req.query;
 
   if (!req.user?._id) {
     throw new AppError("Not authorized, user missing", 401);
@@ -62,6 +91,16 @@ export const getAllAnalyses = asyncHandler(async (req, res) => {
     query.targetRole = role;
   }
 
+  const normalizedMinReadiness = parseScoreNumber(minReadiness, 0);
+  const normalizedMaxReadiness = parseScoreNumber(maxReadiness, 100);
+
+  if (minReadiness !== undefined || maxReadiness !== undefined) {
+    query.jobReadiness = {
+      $gte: Math.min(normalizedMinReadiness, normalizedMaxReadiness),
+      $lte: Math.max(normalizedMinReadiness, normalizedMaxReadiness),
+    };
+  }
+
   const normalizedSearch = String(search).trim();
 
   if (normalizedSearch) {
@@ -80,7 +119,7 @@ export const getAllAnalyses = asyncHandler(async (req, res) => {
   const total = await Analysis.countDocuments(query);
 
   const analyses = await Analysis.find(query)
-    .sort({ createdAt: -1 })
+    .sort(getSortOption(sort))
     .skip(skip)
     .limit(limitNumber)
     .select(

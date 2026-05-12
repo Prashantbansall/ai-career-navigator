@@ -63,6 +63,10 @@ export const analyzeResumeAPI = async (file, targetRole) => {
 export const getAnalysisHistoryAPI = async ({
   search = "",
   role = "All",
+  readinessRange = "all",
+  minReadiness,
+  maxReadiness,
+  sort = "newest",
   page = 1,
   limit = 6,
 } = {}) => {
@@ -78,6 +82,22 @@ export const getAnalysisHistoryAPI = async ({
 
     if (role && role !== "All") {
       params.append("role", role);
+    }
+
+    if (readinessRange && readinessRange !== "all") {
+      params.append("readinessRange", readinessRange);
+    }
+
+    if (minReadiness !== undefined) {
+      params.append("minReadiness", String(minReadiness));
+    }
+
+    if (maxReadiness !== undefined) {
+      params.append("maxReadiness", String(maxReadiness));
+    }
+
+    if (sort && sort !== "newest") {
+      params.append("sort", sort);
     }
 
     const res = await fetch(`${API_BASE_URL}/analysis?${params.toString()}`, {
@@ -259,5 +279,21 @@ export const getCurrentUserAPI = async (token) => {
   } catch (error) {
     console.error("Current user API error:", error.message);
     throw error;
+  }
+};
+
+export const getUserProfileSummaryAPI = async () => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/profile`, {
+      headers: {
+        ...getAuthHeaders(),
+      },
+    });
+
+    const data = await parseResponse(res);
+
+    return data?.data?.profile || data?.profile || data?.data || data;
+  } catch (error) {
+    handleNetworkError(error);
   }
 };

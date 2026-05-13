@@ -3,7 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import {
-  AlertTriangle,
   ArrowRight,
   BarChart3,
   Brain,
@@ -31,7 +30,8 @@ import Card from "../components/ui/Card";
 import GlowButton from "../components/ui/GlowButton";
 import EmptyState from "../components/ui/EmptyState";
 import AnimatedBadge from "../components/ui/AnimatedBadge";
-import SkeletonCard from "../components/ui/SkeletonCard";
+import ErrorState from "../components/ui/ErrorState";
+import LoadingState from "../components/ui/LoadingState";
 import { useAuth } from "../context/AuthContext";
 import { getAnalysisByIdAPI, getAnalysisHistoryAPI } from "../services/api";
 
@@ -203,11 +203,11 @@ function ProfileMetric({ icon: Icon, label, value }) {
 
 function LoadingProfiles() {
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      {Array.from({ length: 4 }).map((_, index) => (
-        <SkeletonCard key={index} />
-      ))}
-    </div>
+    <LoadingState
+      variant="inline"
+      title="Loading resume profiles..."
+      description="Grouping your saved analyses into role-based resume workspaces."
+    />
   );
 }
 
@@ -327,7 +327,11 @@ export default function ResumeProfiles() {
     return (
       <GradientBackground>
         <Navbar />
-        <main className="mx-auto max-w-4xl px-4 py-10 md:py-16">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="mx-auto max-w-4xl px-4 py-10 md:py-16"
+        >
           <EmptyState
             icon={FileStack}
             title="Sign in to manage resume profiles"
@@ -352,7 +356,11 @@ export default function ResumeProfiles() {
     <GradientBackground>
       <Navbar />
 
-      <main className="mx-auto max-w-7xl px-4 pb-20 pt-8 md:pt-10">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="mx-auto max-w-7xl px-4 pb-20 pt-8 md:pt-10"
+      >
         <motion.section
           initial={{ opacity: 0, y: 22 }}
           animate={{ opacity: 1, y: 0 }}
@@ -521,30 +529,14 @@ export default function ResumeProfiles() {
         </section>
 
         {error && (
-          <Card className="mb-8 border-red-400/20 bg-red-500/10 hover:bg-red-500/10">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="flex gap-4">
-                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-red-400/20 bg-red-500/15 text-red-200">
-                  <AlertTriangle size={22} aria-hidden="true" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-red-100">
-                    Resume profiles unavailable
-                  </h2>
-                  <p className="mt-1 text-sm text-red-200/80">{error}</p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={fetchProfiles}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-100 transition hover:bg-red-500/20"
-              >
-                <RefreshCcw size={16} aria-hidden="true" />
-                Retry
-              </button>
-            </div>
-          </Card>
+          <ErrorState
+            className="mb-8"
+            title="Resume profiles unavailable"
+            description="We could not load your grouped resume profile workspace right now."
+            details={error}
+            onAction={fetchProfiles}
+            actionLabel="Retry"
+          />
         )}
 
         {loading ? (

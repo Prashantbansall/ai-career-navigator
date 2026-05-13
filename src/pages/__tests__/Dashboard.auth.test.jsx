@@ -127,11 +127,11 @@ describe("Dashboard personalized auth-aware behavior", () => {
     getAnalysisByIdAPI.mockResolvedValue(mockCurrentAnalysis);
   });
 
-  it("shows sign-in dashboard message when user is not authenticated", () => {
+  it("shows sign-in dashboard message when user is not authenticated", async () => {
     renderWithoutAuth(<Dashboard />, { route: "/dashboard" });
 
     expect(
-      screen.getByText(/Sign in to view your personal dashboard/i),
+      await screen.findByText(/Sign in to view your personal dashboard/i),
     ).toBeInTheDocument();
 
     expect(

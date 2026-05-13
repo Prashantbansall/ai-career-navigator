@@ -3,63 +3,89 @@
  *
  * Centralized error handling for the Express backend.
  *
- * Benefits:
- * - keeps API error responses consistent
- * - avoids repeated try/catch response logic inside controllers
- * - converts common database errors into clean client-friendly messages
- * - hides stack traces outside development mode
+ * Every API error response follows this shape:
+ * {
+ *   success: false,
+ *   message: "Human friendly message",
+ *   error: "Human friendly message", // kept for existing frontend compatibility
+ *   code: "STABLE_ERROR_CODE",
+ *   details: {...optional}
+ * }
  */
+import AppError from "../utils/AppError.js";
 
-/**
- * Handles unknown API routes.
- *
- * If no route matches the request, this middleware creates a 404 error and
- * forwards it to the global error handler.
- */
 export const notFound = (req, res, next) => {
-  const error = new Error(`Route not found - ${req.originalUrl}`);
-  error.statusCode = 404;
-  next(error);
+  next(
+    new AppError(
+      `Route not found - ${req.originalUrl}`,
+      404,
+      "ROUTE_NOT_FOUND",
+    ),
+  );
 };
 
-/**
- * Final Express error handler.
- *
- * All operational errors should eventually pass through this middleware,
- * including AppError instances, Mongoose errors, Multer upload errors, and
- * unknown runtime errors.
- */
-export const errorHandler = (err, req, res, next) => {
-  let statusCode = err.statusCode || res.statusCode || 500;
+const normalizeError = (err) => {
+  let statusCode = err.statusCode || err.status || 500;
   let message = err.message || "Internal Server Error";
+  let code = err.code || "SERVER_ERROR";
+  let details = err.details || null;
 
-  // Mongoose CastError usually means an invalid MongoDB ObjectId was used.
   if (err.name === "CastError") {
     statusCode = 400;
-    message = "Invalid resource ID";
+    message = "Invalid resource ID.";
+    code = "INVALID_RESOURCE_ID";
+    details = {
+      field: err.path,
+      value: err.value,
+    };
   }
 
-  // Mongoose ValidationError can include multiple field-level messages.
   if (err.name === "ValidationError") {
     statusCode = 400;
-    message = Object.values(err.errors)
-      .map((item) => item.message)
-      .join(", ");
+    message = "Validation failed. Please check the submitted data.";
+    code = "VALIDATION_ERROR";
+    details = Object.values(err.errors || {}).map((item) => ({
+      field: item.path,
+      message: item.message,
+    }));
   }
 
-  // MongoDB duplicate key error.
-  // Useful if unique fields are added later, such as email or username.
   if (err.code === 11000) {
     statusCode = 409;
-    message = "Duplicate resource found";
+    message = "Duplicate resource found.";
+    code = "DUPLICATE_RESOURCE";
+    details = {
+      fields: Object.keys(err.keyValue || {}),
+    };
   }
+
+  if (statusCode < 400) {
+    statusCode = 500;
+  }
+
+  if (statusCode === 500 && !err.isOperational) {
+    message = "Something went wrong on the server. Please try again.";
+    code = "SERVER_ERROR";
+  }
+
+  return { statusCode, message, code, details };
+};
+
+export const errorHandler = (err, req, res, next) => {
+  const { statusCode, message, code, details } = normalizeError(err);
 
   const response = {
     success: false,
+    message,
+    // `error` is preserved so existing frontend parseResponse logic keeps working.
     error: message,
+    code,
   };
 
-  // Stack traces are helpful during development but should not be exposed in production.
+  if (details) {
+    response.details = details;
+  }
+
   if (process.env.NODE_ENV === "development") {
     response.stack = err.stack;
   }

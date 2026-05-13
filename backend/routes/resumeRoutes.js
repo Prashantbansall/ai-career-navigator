@@ -1,4 +1,6 @@
 import express from "express";
+import fs from "fs";
+import path from "path";
 import multer from "multer";
 import {
   uploadResume,
@@ -8,19 +10,42 @@ import {
 import { uploadErrorHandler } from "../middleware/uploadErrorHandler.js";
 import { validateTargetRole } from "../middleware/validateTargetRole.js";
 import { protect } from "../middleware/authMiddleware.js";
+import { getUploadDirectory, uploadConfig } from "../config/security.js";
 
 const router = express.Router();
 
+const uploadDirectory = getUploadDirectory();
+fs.mkdirSync(uploadDirectory, { recursive: true });
+
+const sanitizeFileName = (originalName = "resume.pdf") => {
+  const parsed = path.parse(path.basename(originalName));
+  const safeBaseName =
+    parsed.name
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9-_]/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 80) || "resume";
+
+  return `${safeBaseName}.pdf`;
+};
+
 const storage = multer.diskStorage({
-  destination: "uploads/",
+  destination: uploadDirectory,
   filename: (req, file, cb) => {
-    const safeFileName = file.originalname.replace(/\s+/g, "-");
-    cb(null, `${Date.now()}-${safeFileName}`);
+    cb(null, `${Date.now()}-${sanitizeFileName(file.originalname)}`);
   },
 });
 
 const fileFilter = (req, file, cb) => {
-  if (file.mimetype !== "application/pdf") {
+  const extension = path.extname(file.originalname || "").toLowerCase();
+  const isAllowedMimeType = uploadConfig.allowedMimeTypes.includes(
+    file.mimetype,
+  );
+  const isAllowedExtension = uploadConfig.allowedExtensions.includes(extension);
+
+  if (!isAllowedMimeType || !isAllowedExtension) {
     return cb(new Error("Only PDF files are allowed"), false);
   }
 
@@ -31,7 +56,8 @@ const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024,
+    fileSize: uploadConfig.maxFileSizeMb * 1024 * 1024,
+    files: 1,
   },
 });
 

@@ -13,6 +13,10 @@ describe("Resume API Validation", () => {
 
     expect(res.statusCode).toBe(400);
     expect(res.body.success).toBe(false);
+    expect(res.body.code).toBe("RESUME_FILE_REQUIRED");
+    expect(res.body.details).toEqual(
+      expect.objectContaining({ field: "resume" }),
+    );
   });
 
   it("should reject invalid target role", async () => {
@@ -24,5 +28,9 @@ describe("Resume API Validation", () => {
     expect(res.statusCode).toBe(400);
     expect(res.body.success).toBe(false);
     expect(res.body.error).toContain("Invalid target role");
+    expect(res.body.code).toBe("INVALID_TARGET_ROLE");
+    expect(res.body.details).toEqual(
+      expect.objectContaining({ field: "targetRole" }),
+    );
   });
 });

@@ -136,51 +136,34 @@ describe("Dashboard Page", () => {
     renderWithProviders(<Dashboard />, { route: "/dashboard" });
 
     expect(
-      screen.getByRole("heading", { name: /Test's Career Dashboard/i }),
+      await screen.findByRole("heading", { name: /Test's Career Dashboard/i }),
     ).toBeInTheDocument();
 
-    expect(screen.getAllByText("SDE").length).toBeGreaterThan(0);
-
+    expect((await screen.findAllByText("SDE")).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/67%/i).length).toBeGreaterThan(0);
 
     expect(
-      screen.getByText(/Dashboard Progress Snapshot/i),
+      screen.getByRole("heading", { name: /Dashboard Progress Snapshot/i }),
     ).toBeInTheDocument();
     expect(screen.getByText(/Roadmap completion/i)).toBeInTheDocument();
     expect(screen.getByText(/Remaining skill gaps/i)).toBeInTheDocument();
 
     expect(screen.getAllByText(/Node.js/i).length).toBeGreaterThan(0);
 
-    await waitFor(() => {
-      expect(screen.getByText(/Recent Analyses/i)).toBeInTheDocument();
-    });
+    expect(await screen.findByText(/Recent Analyses/i)).toBeInTheDocument();
   });
 
   it("shows clear analysis button when analysis exists", async () => {
-    localStorage.setItem(
-      "analysis",
-      JSON.stringify({
-        targetRole: "SDE",
-        roleTitle: "Software Development Engineer",
-        extractedSkills: [],
-        requiredSkills: [],
-        matchedSkills: [],
-        missingSkills: [],
-        jobReadiness: 80,
-        roadmapSource: "fallback",
-      }),
-    );
-
     localStorage.setItem("analysis", JSON.stringify(mockAnalysis));
     renderWithProviders(<Dashboard />, { route: "/dashboard" });
 
     expect(
-      screen.getByRole("button", { name: /Clear current resume analysis/i }),
+      await screen.findByRole("button", {
+        name: /Clear current resume analysis/i,
+      }),
     ).toBeInTheDocument();
 
-    await waitFor(() => {
-      expect(screen.getByText(/Recent Analyses/i)).toBeInTheDocument();
-    });
+    expect(await screen.findByText(/Recent Analyses/i)).toBeInTheDocument();
   });
 
   it("shows Export PDF button when analysis exists", async () => {
@@ -326,7 +309,9 @@ describe("Dashboard Page", () => {
     renderWithProviders(<Dashboard />, { route: "/dashboard" });
 
     expect(
-      await screen.findByText(/Dashboard Progress Snapshot/i),
+      await screen.findByRole("heading", {
+        name: /Dashboard Progress Snapshot/i,
+      }),
     ).toBeInTheDocument();
     expect(screen.getAllByText(/0% roadmap complete/i).length).toBeGreaterThan(
       0,

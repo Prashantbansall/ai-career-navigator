@@ -7,7 +7,8 @@ import Card from "../components/ui/Card";
 import AnimatedBadge from "../components/ui/AnimatedBadge";
 import GlowButton from "../components/ui/GlowButton";
 import ConfirmModal from "../components/ui/ConfirmModal";
-import SkeletonCard from "../components/ui/SkeletonCard";
+import LoadingState from "../components/ui/LoadingState";
+import ErrorState from "../components/ui/ErrorState";
 import {
   deleteAnalysisAPI,
   exportAnalysisPdfAPI,
@@ -17,7 +18,6 @@ import { getReadinessStyle } from "../utils/readiness";
 import { motion } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
 import {
-  AlertTriangle,
   ArrowLeft,
   Brain,
   Calendar,
@@ -295,7 +295,11 @@ export default function AnalysisDetail() {
     <GradientBackground>
       <Navbar />
 
-      <main className="mx-auto max-w-7xl px-4 pb-20 pt-8 sm:px-6 lg:px-8">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="mx-auto max-w-7xl px-4 pb-20 pt-8 sm:px-6 lg:px-8"
+      >
         <motion.section
           variants={staggerContainer}
           initial="hidden"
@@ -386,12 +390,11 @@ export default function AnalysisDetail() {
         </motion.section>
 
         {loading && (
-          <div className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-3">
-              <SkeletonCard count={3} />
-            </div>
-            <SkeletonCard count={4} />
-          </div>
+          <LoadingState
+            variant="inline"
+            title="Loading saved analysis..."
+            description="Preparing your readiness score, skill gaps, roadmap, and export actions."
+          />
         )}
 
         {!loading && error && (
@@ -400,29 +403,14 @@ export default function AnalysisDetail() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.45 }}
           >
-            <Card className="mx-auto max-w-3xl border-red-500/30 text-center">
-              <div className="mx-auto mb-6 grid h-20 w-20 place-items-center rounded-3xl border border-red-400/25 bg-red-500/10 text-red-300">
-                <AlertTriangle size={36} aria-hidden="true" />
-              </div>
-
-              <h2 className="text-2xl font-bold text-red-300 md:text-3xl">
-                Analysis Not Found
-              </h2>
-
-              <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-400 md:text-base">
-                This saved report may have been deleted, the link may be
-                invalid, or it may not belong to your account.
-              </p>
-
-              <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-400">
-                {error}
-              </div>
-
-              <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
-                <GlowButton to="/history" variant="solid">
-                  Back to History
-                </GlowButton>
-
+            <ErrorState
+              className="mx-auto max-w-3xl"
+              title="Analysis Not Found"
+              description="This saved report may have been deleted, the link may be invalid, or it may not belong to your account."
+              details={error}
+              actionLabel="Back to History"
+              actionTo="/history"
+              secondaryAction={
                 <button
                   type="button"
                   onClick={() => navigate("/upload")}
@@ -430,8 +418,8 @@ export default function AnalysisDetail() {
                 >
                   Upload Resume
                 </button>
-              </div>
-            </Card>
+              }
+            />
           </motion.div>
         )}
 

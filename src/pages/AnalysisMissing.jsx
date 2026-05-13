@@ -11,7 +11,11 @@ export default function AnalysisMissing() {
     <GradientBackground>
       <Navbar />
 
-      <main className="mx-auto flex min-h-[calc(100vh-80px)] max-w-5xl items-center justify-center px-4 py-12">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="mx-auto flex min-h-[calc(100vh-80px)] max-w-5xl items-center justify-center px-4 py-12"
+      >
         <motion.div
           initial={{ opacity: 0, y: 24, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}

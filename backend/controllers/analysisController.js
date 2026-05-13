@@ -41,15 +41,50 @@ const parseScoreNumber = (value, fallback) => {
   return Math.min(Math.max(number, 0), 100);
 };
 
-const getSortOption = (sort = "newest") => {
-  const sortMap = {
-    newest: { createdAt: -1 },
-    oldest: { createdAt: 1 },
-    "readiness-high": { jobReadiness: -1, createdAt: -1 },
-    "readiness-low": { jobReadiness: 1, createdAt: -1 },
-  };
+const sortOptions = {
+  newest: { createdAt: -1 },
+  oldest: { createdAt: 1 },
+  "readiness-high": { jobReadiness: -1, createdAt: -1 },
+  "readiness-low": { jobReadiness: 1, createdAt: -1 },
+};
 
-  return sortMap[sort] || sortMap.newest;
+const getSortOption = (sort = "newest") =>
+  sortOptions[sort] || sortOptions.newest;
+
+const validateHistoryQuery = ({ role, sort, minReadiness, maxReadiness }) => {
+  if (!validRoles.includes(role)) {
+    throw new AppError(
+      `Invalid role filter. Valid roles are: ${validRoles.join(", ")}`,
+      400,
+      "INVALID_ROLE_FILTER",
+      { field: "role", validRoles },
+    );
+  }
+
+  if (!Object.keys(sortOptions).includes(sort)) {
+    throw new AppError(
+      "Invalid sort option. Use newest, oldest, readiness-high, or readiness-low.",
+      400,
+      "INVALID_SORT_OPTION",
+      { field: "sort", validSortOptions: Object.keys(sortOptions) },
+    );
+  }
+
+  const invalidReadinessValues = [
+    ["minReadiness", minReadiness],
+    ["maxReadiness", maxReadiness],
+  ].filter(
+    ([, value]) => value !== undefined && !Number.isFinite(Number(value)),
+  );
+
+  if (invalidReadinessValues.length) {
+    throw new AppError(
+      "Readiness filters must be valid numbers between 0 and 100.",
+      400,
+      "INVALID_READINESS_FILTER",
+      invalidReadinessValues.map(([field]) => ({ field })),
+    );
+  }
 };
 
 /**
@@ -69,15 +104,14 @@ export const getAllAnalyses = asyncHandler(async (req, res) => {
   } = req.query;
 
   if (!req.user?._id) {
-    throw new AppError("Not authorized, user missing", 401);
-  }
-
-  if (!validRoles.includes(role)) {
     throw new AppError(
-      `Invalid role filter. Valid roles are: ${validRoles.join(", ")}`,
-      400,
+      "Authentication required. Please sign in to continue.",
+      401,
+      "AUTH_USER_MISSING",
     );
   }
+
+  validateHistoryQuery({ role, sort, minReadiness, maxReadiness });
 
   const pageNumber = parsePositiveNumber(page, 1);
   const limitNumber = Math.min(parsePositiveNumber(limit, 6), 20);
@@ -155,7 +189,9 @@ export const getAnalysisById = asyncHandler(async (req, res) => {
   });
 
   if (!analysis) {
-    throw new AppError("Analysis not found", 404);
+    throw new AppError("Analysis not found", 404, "ANALYSIS_NOT_FOUND", {
+      field: "id",
+    });
   }
 
   res.json({
@@ -179,13 +215,19 @@ export const exportAnalysisPdf = asyncHandler(async (req, res) => {
   });
 
   if (!analysis) {
-    throw new AppError("Analysis not found", 404);
+    throw new AppError("Analysis not found", 404, "ANALYSIS_NOT_FOUND", {
+      field: "id",
+    });
   }
 
   const pdfBuffer = await generateAnalysisPdfBuffer(analysis);
 
   if (!pdfBuffer || !pdfBuffer.length) {
-    throw new AppError("PDF generation failed. Please try again.", 500);
+    throw new AppError(
+      "PDF generation failed. Please try again.",
+      500,
+      "PDF_GENERATION_FAILED",
+    );
   }
 
   const createSafeFilePart = (value = "") => {
@@ -235,7 +277,9 @@ export const deleteAnalysis = asyncHandler(async (req, res) => {
   });
 
   if (!analysis) {
-    throw new AppError("Analysis not found", 404);
+    throw new AppError("Analysis not found", 404, "ANALYSIS_NOT_FOUND", {
+      field: "id",
+    });
   }
 
   await analysis.deleteOne();

@@ -23,7 +23,6 @@ import {
 } from "lucide-react";
 
 export default function Upload() {
-  
   const benefits = [
     {
       title: "Extract Your Skills",
@@ -113,7 +112,11 @@ export default function Upload() {
     <GradientBackground>
       <Navbar />
 
-      <main className="max-w-7xl mx-auto px-4 pt-10 md:pt-14 pb-20">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="max-w-7xl mx-auto px-4 pt-10 md:pt-14 pb-20"
+      >
         {/* TOP HEADER */}
         <motion.div
           variants={staggerContainer}

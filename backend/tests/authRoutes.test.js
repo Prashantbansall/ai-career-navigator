@@ -55,6 +55,26 @@ describe("Auth Routes", () => {
 
     expect(res.statusCode).toBe(409);
     expect(res.body.success).toBe(false);
+    expect(res.body.code).toBe("EMAIL_ALREADY_EXISTS");
+  });
+
+  it("POST /api/auth/register should return field-level validation details", async () => {
+    const res = await request(app).post("/api/auth/register").send({
+      name: "",
+      email: "not-an-email",
+      password: "123",
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.code).toBe("AUTH_VALIDATION_ERROR");
+    expect(res.body.details).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "name" }),
+        expect.objectContaining({ field: "email" }),
+        expect.objectContaining({ field: "password" }),
+      ]),
+    );
   });
 
   it("POST /api/auth/login should login valid user", async () => {
@@ -95,5 +115,26 @@ describe("Auth Routes", () => {
 
     expect(res.statusCode).toBe(401);
     expect(res.body.success).toBe(false);
+    expect(res.body.code).toBe("INVALID_CREDENTIALS");
+  });
+
+  it("POST /api/auth/login should return predictable validation errors", async () => {
+    const res = await request(app).post("/api/auth/login").send({
+      email: "",
+      password: "",
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toBe(
+      "Please enter your email and password to sign in.",
+    );
+    expect(res.body.code).toBe("AUTH_VALIDATION_ERROR");
+    expect(res.body.details).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "email" }),
+        expect.objectContaining({ field: "password" }),
+      ]),
+    );
   });
 });

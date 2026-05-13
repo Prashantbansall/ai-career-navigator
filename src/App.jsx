@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import GradientBackground from "./components/layout/GradientBackground";
 import ErrorBoundary from "./components/ui/ErrorBoundary";
+import LoadingState from "./components/ui/LoadingState";
 import { AuthProvider } from "./context/AuthContext";
 
 const Home = lazy(() => import("./pages/Home"));
@@ -20,12 +21,11 @@ const AnalysisMissing = lazy(() => import("./pages/AnalysisMissing"));
 function PageLoader() {
   return (
     <GradientBackground>
-      <div className="flex min-h-screen items-center justify-center px-4">
-        <div className="text-center">
-          <div className="mx-auto mb-5 h-12 w-12 animate-spin rounded-full border-4 border-indigo-500/20 border-t-indigo-400"></div>
-          <p className="text-sm text-gray-400">Loading page...</p>
-        </div>
-      </div>
+      <LoadingState
+        variant="page"
+        title="Loading page..."
+        description="Preparing your AI Career Navigator workspace."
+      />
     </GradientBackground>
   );
 }
@@ -34,6 +34,13 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-2xl focus:bg-indigo-500 focus:px-4 focus:py-3 focus:text-sm focus:font-bold focus:text-white focus:shadow-2xl focus:shadow-indigo-500/30"
+        >
+          Skip to main content
+        </a>
+
         <Toaster
           position="top-right"
           toastOptions={{

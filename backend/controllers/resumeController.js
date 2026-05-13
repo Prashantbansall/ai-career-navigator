@@ -37,11 +37,21 @@ const deleteUploadedFile = (filePath) => {
  */
 const validateUploadedFile = (req) => {
   if (!req.file) {
-    throw new AppError("No resume file uploaded", 400);
+    throw new AppError(
+      "Please upload a PDF resume before continuing.",
+      400,
+      "RESUME_FILE_REQUIRED",
+      { field: "resume" },
+    );
   }
 
   if (req.file.mimetype !== "application/pdf") {
-    throw new AppError("Only PDF resumes are allowed", 400);
+    throw new AppError(
+      "Only PDF resumes are allowed. Please upload a .pdf file.",
+      400,
+      "UNSUPPORTED_FILE_TYPE",
+      { field: "resume", allowedTypes: ["application/pdf"] },
+    );
   }
 };
 

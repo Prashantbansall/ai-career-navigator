@@ -9,6 +9,7 @@ import toast from "react-hot-toast";
 import SkeletonCard from "../components/ui/SkeletonCard";
 import ConfirmModal from "../components/ui/ConfirmModal";
 import EmptyState from "../components/ui/EmptyState";
+import ErrorState from "../components/ui/ErrorState";
 import { useAuth } from "../context/AuthContext";
 import {
   getAnalysisHistoryAPI,
@@ -25,7 +26,6 @@ import {
   Eye,
   RefreshCcw,
   Database,
-  AlertTriangle,
   Brain,
   BarChart3,
   Search,
@@ -375,7 +375,11 @@ export default function History() {
     <GradientBackground>
       <Navbar />
 
-      <main className="max-w-7xl mx-auto px-4 mt-8 md:mt-10 pb-20">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="max-w-7xl mx-auto px-4 mt-8 md:mt-10 pb-20"
+      >
         {/* HEADER */}
         <motion.section
           initial={{ opacity: 0, y: 22 }}
@@ -665,19 +669,14 @@ export default function History() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45 }}
           >
-            <Card className="mb-8 border-red-500/30">
-              <div
-                role="alert"
-                aria-live="assertive"
-                className="flex items-start gap-3 text-red-300"
-              >
-                <AlertTriangle size={20} aria-hidden="true" className="mt-1" />
-                <div>
-                  <h3 className="font-semibold">Something went wrong</h3>
-                  <p className="text-sm text-red-200/80 mt-1">{error}</p>
-                </div>
-              </div>
-            </Card>
+            <ErrorState
+              className="mb-8"
+              title="Something went wrong"
+              description="We could not update your saved-analysis workspace."
+              details={error}
+              onAction={() => fetchHistory({ reset: true })}
+              actionLabel="Retry"
+            />
           </motion.div>
         )}
 
@@ -857,13 +856,10 @@ export default function History() {
                           <p className="text-xs uppercase tracking-[0.18em] text-gray-500">
                             Ready
                           </p>
-                          <p className="mt-2 text-3xl font-black text-green-300">
+                          <p className="mt-1 text-3xl font-black text-green-300">
                             {score}%
                           </p>
-                          <AnimatedBadge
-                            variant={getScoreVariant(score)}
-                            className="mt-4"
-                          >
+                          <AnimatedBadge variant={getScoreVariant(score)}>
                             {getScoreLabel(score)}
                           </AnimatedBadge>
                         </div>

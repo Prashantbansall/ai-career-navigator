@@ -305,7 +305,7 @@ export default function Navbar() {
         {menuOpen && (
           <div
             id="mobile-navigation"
-            className="mx-auto mt-4 max-w-7xl overflow-hidden rounded-3xl border border-white/10 bg-slate-900/95 p-4 shadow-2xl shadow-black/25 backdrop-blur-2xl lg:hidden"
+            className="mx-auto mt-4 max-h-[calc(100vh-6rem)] max-w-7xl overflow-y-auto rounded-3xl border border-white/10 bg-slate-900/95 p-4 shadow-2xl shadow-black/25 backdrop-blur-2xl lg:hidden"
             aria-label="Mobile navigation"
           >
             <div className="mb-4 rounded-2xl border border-indigo-400/15 bg-indigo-500/10 p-4">

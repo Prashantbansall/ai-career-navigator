@@ -194,6 +194,39 @@ describe("Analysis API", () => {
     expect(res.body.data.total).toBe(0);
   });
 
+  it("should return predictable error for invalid sort option", async () => {
+    const res = await request(app)
+      .get("/api/analysis?sort=random")
+      .set("Authorization", AUTH_HEADER);
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.code).toBe("INVALID_SORT_OPTION");
+    expect(res.body.details.validSortOptions).toEqual(
+      expect.arrayContaining([
+        "newest",
+        "oldest",
+        "readiness-high",
+        "readiness-low",
+      ]),
+    );
+  });
+
+  it("should return predictable error for invalid readiness filter", async () => {
+    const res = await request(app)
+      .get("/api/analysis?minReadiness=high")
+      .set("Authorization", AUTH_HEADER);
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.code).toBe("INVALID_READINESS_FILTER");
+    expect(res.body.details).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "minReadiness" }),
+      ]),
+    );
+  });
+
   it("should return 400 for invalid MongoDB id when fetching analysis", async () => {
     const res = await request(app)
       .get("/api/analysis/invalid-id")
@@ -202,6 +235,7 @@ describe("Analysis API", () => {
     expect(res.statusCode).toBe(400);
     expect(res.body.success).toBe(false);
     expect(res.body.error).toContain("Invalid");
+    expect(res.body.code).toBe("INVALID_ANALYSIS_ID");
   });
 
   it("should return 404 for valid but non-existing MongoDB id", async () => {
@@ -242,6 +276,7 @@ describe("Analysis API", () => {
     expect(res.statusCode).toBe(400);
     expect(res.body.success).toBe(false);
     expect(res.body.error).toContain("Invalid");
+    expect(res.body.code).toBe("INVALID_ANALYSIS_ID");
   });
 
   it("should return 404 when deleting valid but non-existing MongoDB id", async () => {

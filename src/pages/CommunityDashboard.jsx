@@ -5,10 +5,11 @@ import GradientBackground from "../components/layout/GradientBackground";
 import Card from "../components/ui/Card";
 import AnimatedBadge from "../components/ui/AnimatedBadge";
 import EmptyState from "../components/ui/EmptyState";
+import ErrorState from "../components/ui/ErrorState";
+import LoadingState from "../components/ui/LoadingState";
 import { getCommunityStatsAPI } from "../services/api";
 
 import {
-  AlertTriangle,
   Award,
   BarChart3,
   Brain,
@@ -17,7 +18,6 @@ import {
   LineChart,
   ListChecks,
   PieChart,
-  RefreshCcw,
   Route,
   ShieldCheck,
   Sparkles,
@@ -216,40 +216,6 @@ function RankingList({ title, subtitle, icon: Icon, items, type, emptyText }) {
   );
 }
 
-function LoadingAnalyticsState() {
-  return (
-    <div className="space-y-6" role="status" aria-live="polite">
-      <Card className="bg-slate-900/70">
-        <div className="grid gap-6 md:grid-cols-[1.2fr_0.8fr] md:items-center">
-          <div>
-            <div className="h-5 w-44 animate-pulse rounded-full bg-white/10" />
-            <div className="mt-5 h-9 w-3/4 animate-pulse rounded-2xl bg-white/10" />
-            <div className="mt-3 h-4 w-full animate-pulse rounded-full bg-white/10" />
-            <div className="mt-2 h-4 w-2/3 animate-pulse rounded-full bg-white/10" />
-          </div>
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-            <div className="mx-auto h-20 w-20 animate-spin rounded-full border-4 border-indigo-500/20 border-t-indigo-400" />
-            <p className="mt-5 text-center text-sm text-slate-400">
-              Loading community insights...
-            </p>
-          </div>
-        </div>
-      </Card>
-
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {[1, 2, 3, 4].map((item) => (
-          <Card key={item} className="bg-slate-900/70">
-            <div className="h-12 w-12 animate-pulse rounded-2xl bg-white/10" />
-            <div className="mt-6 h-4 w-28 animate-pulse rounded-full bg-white/10" />
-            <div className="mt-3 h-8 w-20 animate-pulse rounded-xl bg-white/10" />
-            <div className="mt-3 h-4 w-full animate-pulse rounded-full bg-white/10" />
-          </Card>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export default function CommunityDashboard() {
   const [communityStats, setCommunityStats] = useState(emptyCommunityStats);
   const [loading, setLoading] = useState(true);
@@ -347,7 +313,11 @@ export default function CommunityDashboard() {
     <GradientBackground>
       <Navbar />
 
-      <main className="mx-auto max-w-7xl px-4 pb-20 pt-8 md:pt-10">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="mx-auto max-w-7xl px-4 pb-20 pt-8 md:pt-10"
+      >
         <motion.section
           variants={staggerContainer}
           initial="hidden"
@@ -407,40 +377,23 @@ export default function CommunityDashboard() {
           </div>
         </motion.section>
 
-        {loading && <LoadingAnalyticsState />}
+        {loading && (
+          <LoadingState
+            variant="inline"
+            title="Loading community insights..."
+            description="Preparing role trends, skill gaps, readiness distribution, and roadmap demand analytics."
+          />
+        )}
 
         {!loading && error && (
-          <Card className="mb-8 border-red-500/20 bg-red-500/5 hover:bg-red-500/5">
-            <div className="grid gap-6 md:grid-cols-[1fr_auto] md:items-center">
-              <div className="flex items-start gap-4">
-                <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-3 text-red-300">
-                  <AlertTriangle size={24} aria-hidden="true" />
-                </div>
-
-                <div>
-                  <h2 className="text-xl font-bold text-red-200">
-                    Community insights unavailable
-                  </h2>
-                  <p className="mt-2 text-sm leading-6 text-slate-400">
-                    {error}
-                  </p>
-                  <p className="mt-1 text-sm leading-6 text-slate-500">
-                    Try again in a moment. Your dashboard and saved analyses are
-                    not affected.
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={fetchCommunityStats}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-slate-100 transition hover:-translate-y-0.5 hover:border-red-400/40 hover:bg-red-500/10 hover:shadow-lg hover:shadow-red-500/10"
-              >
-                <RefreshCcw size={16} aria-hidden="true" />
-                Retry
-              </button>
-            </div>
-          </Card>
+          <ErrorState
+            className="mb-8"
+            title="Community insights unavailable"
+            description="Try again in a moment. Your dashboard and saved analyses are not affected."
+            details={error}
+            onAction={fetchCommunityStats}
+            actionLabel="Retry"
+          />
         )}
 
         {!loading && !error && (

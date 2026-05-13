@@ -10,8 +10,9 @@ import { getReadinessStyle } from "../utils/readiness";
 import toast from "react-hot-toast";
 import ConfirmModal from "../components/ui/ConfirmModal";
 import EmptyState from "../components/ui/EmptyState";
+import ErrorState from "../components/ui/ErrorState";
+import LoadingState from "../components/ui/LoadingState";
 import RoadmapReport from "../components/dashboard/RoadmapReport";
-import { exportRoadmapPDF } from "../utils/exportPdf";
 import { useAuth } from "../context/AuthContext";
 
 import {
@@ -213,12 +214,16 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
+    let isMounted = true;
+
     if (!isAuthenticated) {
       localStorage.removeItem("analysis");
       setAnalysis(null);
       setRecentHistory([]);
       setHistoryLoading(false);
-      return;
+      return () => {
+        isMounted = false;
+      };
     }
 
     const fetchAccountDashboardData = async () => {
@@ -241,13 +246,15 @@ export default function Dashboard() {
         const selectedAnalysis = selectedFromNavigation || selectedFromStorage;
 
         if (selectedAnalysis) {
+          if (!isMounted) return;
+
           setAnalysis(selectedAnalysis);
           localStorage.setItem(
             dashboardStorageKey,
             JSON.stringify(selectedAnalysis),
           );
           localStorage.setItem("analysis", JSON.stringify(selectedAnalysis));
-        } else {
+        } else if (isMounted) {
           setAnalysis(null);
         }
 
@@ -255,6 +262,8 @@ export default function Dashboard() {
           page: 1,
           limit: 3,
         });
+
+        if (!isMounted) return;
 
         const latestAnalyses = data.analyses || [];
         setRecentHistory(latestAnalyses.slice(0, 3));
@@ -268,6 +277,8 @@ export default function Dashboard() {
             latestAnalyses[0]._id,
           );
 
+          if (!isMounted) return;
+
           setAnalysis(latestFullAnalysis);
           localStorage.setItem(
             dashboardStorageKey,
@@ -277,16 +288,38 @@ export default function Dashboard() {
         }
       } catch (error) {
         console.error("Failed to load account dashboard:", error.message);
-        setHistoryError("Unable to load your latest dashboard data right now.");
+
+        if (isMounted) {
+          setHistoryError(
+            "Unable to load your latest dashboard data right now.",
+          );
+        }
       } finally {
-        setHistoryLoading(false);
+        if (isMounted) {
+          setHistoryLoading(false);
+        }
       }
     };
 
     fetchAccountDashboardData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [isAuthenticated, location.state]);
 
   useEffect(() => {
+    let isMounted = true;
+
+    if (!isAuthenticated || !analysis) {
+      setCommunityStats(null);
+      setCommunityLoading(false);
+      setCommunityError("");
+      return () => {
+        isMounted = false;
+      };
+    }
+
     const fetchCommunityStats = async () => {
       try {
         setCommunityLoading(true);
@@ -294,17 +327,28 @@ export default function Dashboard() {
 
         const data = await getCommunityStatsAPI();
 
-        setCommunityStats(data);
+        if (isMounted) {
+          setCommunityStats(data);
+        }
       } catch (error) {
         console.error("Failed to load community insights:", error.message);
-        setCommunityError("Unable to load community insights right now.");
+
+        if (isMounted) {
+          setCommunityError("Unable to load community insights right now.");
+        }
       } finally {
-        setCommunityLoading(false);
+        if (isMounted) {
+          setCommunityLoading(false);
+        }
       }
     };
 
     fetchCommunityStats();
-  }, []);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated, analysis]);
 
   useEffect(() => {
     if (!analysis) {
@@ -369,6 +413,7 @@ export default function Dashboard() {
         }
       }
 
+      const { exportRoadmapPDF } = await import("../utils/exportPdf");
       await exportRoadmapPDF("roadmap-export", createPdfFileName());
       toast.success("Roadmap PDF exported successfully");
     } catch (error) {
@@ -644,7 +689,11 @@ export default function Dashboard() {
     <GradientBackground>
       <Navbar />
 
-      <main className="mx-auto max-w-7xl px-4 pb-20 pt-6 sm:px-6 md:pt-8">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="mx-auto max-w-7xl px-4 pb-20 pt-6 sm:px-6 md:pt-8"
+      >
         <div className="mb-8 overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 shadow-2xl shadow-indigo-950/20 backdrop-blur-xl md:p-7 lg:p-8">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
             <motion.div
@@ -1054,25 +1103,22 @@ export default function Dashboard() {
                 </div>
 
                 {communityLoading && (
-                  <div
-                    className="flex items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-5"
-                    role="status"
-                    aria-live="polite"
-                  >
-                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-indigo-500/20 border-t-indigo-400"></div>
-                    <p className="text-sm text-gray-400">
-                      Loading community insights...
-                    </p>
-                  </div>
+                  <LoadingState
+                    variant="inline"
+                    title="Loading community insights..."
+                    description="Checking popular roles, skill gaps, and roadmap trends."
+                    className="py-0"
+                  />
                 )}
 
                 {!communityLoading && communityError && (
-                  <div
-                    role="alert"
-                    className="rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-5 text-sm text-yellow-300"
-                  >
-                    {communityError}
-                  </div>
+                  <ErrorState
+                    title="Community insights unavailable"
+                    description="Your dashboard is still available. We could not load community analytics right now."
+                    details={communityError}
+                    onAction={() => window.location.reload()}
+                    actionLabel="Retry"
+                  />
                 )}
 
                 {!communityLoading && !communityError && communityStats && (
@@ -1579,26 +1625,22 @@ export default function Dashboard() {
                 </div>
 
                 {historyError && (
-                  <div
-                    role="alert"
-                    aria-live="assertive"
-                    className="mb-5 rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-4 text-sm text-yellow-300"
-                  >
-                    {historyError}
-                  </div>
+                  <ErrorState
+                    className="mb-5"
+                    title="Recent analyses unavailable"
+                    description="We could not refresh your latest saved analyses right now."
+                    details={historyError}
+                    onAction={() => window.location.reload()}
+                    actionLabel="Retry"
+                  />
                 )}
 
                 {historyLoading && (
-                  <div
-                    className="rounded-3xl border border-white/10 bg-white/5 py-10 text-center"
-                    role="status"
-                    aria-live="polite"
-                  >
-                    <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-indigo-500/20 border-t-indigo-400"></div>
-                    <p className="text-sm text-gray-400">
-                      Loading recent analyses...
-                    </p>
-                  </div>
+                  <LoadingState
+                    variant="inline"
+                    title="Loading recent analyses..."
+                    description="Fetching your latest saved resume reports."
+                  />
                 )}
 
                 {!historyLoading && recentHistory.length === 0 && (

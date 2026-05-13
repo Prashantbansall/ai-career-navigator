@@ -35,7 +35,11 @@ class ErrorBoundary extends Component {
 
     return (
       <GradientBackground>
-        <main className="min-h-screen flex items-center justify-center px-4 py-12">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="min-h-screen flex items-center justify-center px-4 py-12"
+        >
           <div className="w-full max-w-xl rounded-2xl border border-red-500/30 bg-white/5 backdrop-blur-lg p-6 md:p-8 text-center shadow-xl">
             <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-red-500/30 bg-red-500/20 text-red-300">
               <AlertTriangle size={32} aria-hidden="true" />

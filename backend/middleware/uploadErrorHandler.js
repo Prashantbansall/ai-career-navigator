@@ -1,30 +1,21 @@
 /**
  * uploadErrorHandler.js
  *
- * Handles file-upload related errors before they reach controllers.
- *
- * This middleware converts upload errors into AppError instances so the global
- * error handler can return a consistent JSON response format.
- *
- * Common upload errors:
- * - file too large
- * - unsupported file type
- * - wrong file field name
+ * Converts Multer and upload validation errors into consistent API responses.
  */
-
 import multer from "multer";
 import AppError from "../utils/AppError.js";
 
-/**
- * Converts Multer or custom upload errors into clean API errors.
- *
- * This keeps file upload failures consistent with the rest of the backend.
- */
 export const uploadErrorHandler = (err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     if (err.code === "LIMIT_FILE_SIZE") {
       return next(
-        new AppError("Resume file is too large. Max size is 5 MB.", 400),
+        new AppError(
+          "Resume file is too large. Please upload a smaller PDF.",
+          400,
+          "FILE_TOO_LARGE",
+          { field: err.field || "resume" },
+        ),
       );
     }
 
@@ -33,15 +24,30 @@ export const uploadErrorHandler = (err, req, res, next) => {
         new AppError(
           "Unexpected file field. Use 'resume' as the file field name.",
           400,
+          "UNEXPECTED_FILE_FIELD",
+          { expectedField: "resume", receivedField: err.field },
         ),
       );
     }
 
-    return next(new AppError(err.message || "File upload failed.", 400));
+    return next(
+      new AppError(err.message || "File upload failed.", 400, "UPLOAD_ERROR", {
+        field: err.field || "resume",
+      }),
+    );
   }
 
   if (err) {
-    return next(new AppError(err.message || "File upload failed.", 400));
+    const isUnsupportedFile = /pdf/i.test(err.message || "");
+
+    return next(
+      new AppError(
+        err.message || "File upload failed.",
+        400,
+        isUnsupportedFile ? "UNSUPPORTED_FILE_TYPE" : "UPLOAD_ERROR",
+        { allowedTypes: ["application/pdf"] },
+      ),
+    );
   }
 
   next();

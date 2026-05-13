@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import Analysis from "../models/Analysis.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
+import AppError from "../utils/AppError.js";
 
 const generateToken = (userId) => {
   return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
@@ -16,6 +17,67 @@ const sanitizeUser = (user) => ({
   createdAt: user.createdAt,
 });
 
+const normalizeEmail = (email = "") => String(email).toLowerCase().trim();
+
+const validateEmail = (email) => {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+};
+
+const validateRegisterInput = ({ name, email, password }) => {
+  const details = [];
+
+  if (!name?.trim()) {
+    details.push({ field: "name", message: "Name is required." });
+  }
+
+  if (!email?.trim()) {
+    details.push({ field: "email", message: "Email is required." });
+  } else if (!validateEmail(normalizeEmail(email))) {
+    details.push({ field: "email", message: "Enter a valid email address." });
+  }
+
+  if (!password) {
+    details.push({ field: "password", message: "Password is required." });
+  } else if (password.length < 6) {
+    details.push({
+      field: "password",
+      message: "Password must be at least 6 characters.",
+    });
+  }
+
+  if (details.length) {
+    throw new AppError(
+      "Please fix the highlighted signup fields.",
+      400,
+      "AUTH_VALIDATION_ERROR",
+      details,
+    );
+  }
+};
+
+const validateLoginInput = ({ email, password }) => {
+  const details = [];
+
+  if (!email?.trim()) {
+    details.push({ field: "email", message: "Email is required." });
+  } else if (!validateEmail(normalizeEmail(email))) {
+    details.push({ field: "email", message: "Enter a valid email address." });
+  }
+
+  if (!password) {
+    details.push({ field: "password", message: "Password is required." });
+  }
+
+  if (details.length) {
+    throw new AppError(
+      "Please enter your email and password to sign in.",
+      400,
+      "AUTH_VALIDATION_ERROR",
+      details,
+    );
+  }
+};
+
 /**
  * @desc    Register new user
  * @route   POST /api/auth/register
@@ -24,23 +86,19 @@ const sanitizeUser = (user) => ({
 export const registerUser = asyncHandler(async (req, res) => {
   const { name, email, password } = req.body;
 
-  if (!name || !email || !password) {
-    res.status(400);
-    throw new Error("Name, email, and password are required");
-  }
+  validateRegisterInput({ name, email, password });
 
-  if (password.length < 6) {
-    res.status(400);
-    throw new Error("Password must be at least 6 characters");
-  }
-
-  const normalizedEmail = email.toLowerCase().trim();
+  const normalizedEmail = normalizeEmail(email);
 
   const existingUser = await User.findOne({ email: normalizedEmail });
 
   if (existingUser) {
-    res.status(409);
-    throw new Error("User already exists with this email");
+    throw new AppError(
+      "An account already exists with this email. Please sign in instead.",
+      409,
+      "EMAIL_ALREADY_EXISTS",
+      { field: "email" },
+    );
   }
 
   const user = await User.create({
@@ -67,27 +125,30 @@ export const registerUser = asyncHandler(async (req, res) => {
 export const loginUser = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
-  if (!email || !password) {
-    res.status(400);
-    throw new Error("Email and password are required");
-  }
+  validateLoginInput({ email, password });
 
-  const normalizedEmail = email.toLowerCase().trim();
+  const normalizedEmail = normalizeEmail(email);
 
   const user = await User.findOne({ email: normalizedEmail }).select(
     "+password",
   );
 
   if (!user) {
-    res.status(401);
-    throw new Error("Invalid email or password");
+    throw new AppError(
+      "Invalid email or password. Please check your credentials.",
+      401,
+      "INVALID_CREDENTIALS",
+    );
   }
 
   const isPasswordCorrect = await user.comparePassword(password);
 
   if (!isPasswordCorrect) {
-    res.status(401);
-    throw new Error("Invalid email or password");
+    throw new AppError(
+      "Invalid email or password. Please check your credentials.",
+      401,
+      "INVALID_CREDENTIALS",
+    );
   }
 
   const token = generateToken(user._id);
@@ -108,6 +169,7 @@ export const loginUser = asyncHandler(async (req, res) => {
 export const getCurrentUser = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
+    message: "Current user fetched successfully",
     user: sanitizeUser(req.user),
   });
 });

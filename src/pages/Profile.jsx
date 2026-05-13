@@ -2,14 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  AlertTriangle,
   BarChart3,
   CalendarDays,
   Clock3,
   FileStack,
   FileText,
   Mail,
-  RefreshCcw,
   ShieldCheck,
   Sparkles,
   Target,
@@ -22,6 +20,8 @@ import GradientBackground from "../components/layout/GradientBackground";
 import Card from "../components/ui/Card";
 import GlowButton from "../components/ui/GlowButton";
 import EmptyState from "../components/ui/EmptyState";
+import ErrorState from "../components/ui/ErrorState";
+import LoadingState from "../components/ui/LoadingState";
 import AnimatedBadge from "../components/ui/AnimatedBadge";
 import { useAuth } from "../context/AuthContext";
 import { getUserProfileSummaryAPI } from "../services/api";
@@ -94,14 +94,11 @@ function StatCard({ icon: Icon, label, value, helper, accent = "indigo" }) {
 
 function LoadingProfile() {
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
-      {Array.from({ length: 6 }).map((_, index) => (
-        <div
-          key={index}
-          className="h-44 animate-pulse rounded-3xl border border-white/10 bg-white/5"
-        />
-      ))}
-    </div>
+    <LoadingState
+      variant="inline"
+      title="Loading profile summary..."
+      description="Gathering your account stats, readiness scores, and latest activity."
+    />
   );
 }
 
@@ -157,7 +154,11 @@ export default function Profile() {
     return (
       <GradientBackground>
         <Navbar />
-        <main className="mx-auto max-w-4xl px-4 py-10 md:py-16">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="mx-auto max-w-4xl px-4 py-10 md:py-16"
+        >
           <EmptyState
             icon={UserRound}
             title="Sign in to view your profile"
@@ -182,7 +183,11 @@ export default function Profile() {
     <GradientBackground>
       <Navbar />
 
-      <main className="mx-auto max-w-7xl px-4 pb-20 pt-8 md:pt-10">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="mx-auto max-w-7xl px-4 pb-20 pt-8 md:pt-10"
+      >
         <motion.section
           initial={{ opacity: 0, y: 22 }}
           animate={{ opacity: 1, y: 0 }}
@@ -265,30 +270,13 @@ export default function Profile() {
         {loading ? (
           <LoadingProfile />
         ) : error ? (
-          <Card className="border-red-400/20 bg-red-500/10">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="flex gap-4">
-                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-red-400/20 bg-red-500/15 text-red-200">
-                  <AlertTriangle size={22} aria-hidden="true" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-red-100">
-                    Profile summary unavailable
-                  </h2>
-                  <p className="mt-1 text-sm text-red-200/80">{error}</p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={fetchProfile}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-white/15"
-              >
-                <RefreshCcw size={16} aria-hidden="true" />
-                Retry
-              </button>
-            </div>
-          </Card>
+          <ErrorState
+            title="Profile summary unavailable"
+            description="We could not load your account-level profile stats right now."
+            details={error}
+            onAction={fetchProfile}
+            actionLabel="Retry"
+          />
         ) : (
           <>
             <section className="mb-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
